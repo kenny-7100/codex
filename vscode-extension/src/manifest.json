@@ -114,6 +114,12 @@
           "type": "boolean",
           "default": true
         },
+        "chatgpt.persistentProviderRetries": {
+          "description": "Keep waiting for network and model-provider recovery in custom engine builds. Maximum retry wait is five minutes. Stop cancels the current turn. Reload the window after changing this setting.",
+          "type": "boolean",
+          "default": true,
+          "scope": "application"
+        },
         "chatgpt.cliExecutable": {
           "description": "DEVELOPMENT ONLY: Path to the Codex CLI executable. You do NOT need to set this unless you are actively developing the Codex CLI. If set this manually, parts of the extension may not work as expected.",
           "type": [

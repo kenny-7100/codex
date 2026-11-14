@@ -145,6 +145,7 @@ fn provider(name: &str) -> Provider {
         query_params: None,
         headers: HeaderMap::new(),
         retry: codex_api::RetryConfig {
+            max_delay: None,
             max_attempts: 1,
             base_delay: Duration::from_millis(1),
             retry_429: false,

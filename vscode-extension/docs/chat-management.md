@@ -75,7 +75,7 @@ node test/vscode-ui-controller.mjs
 
 完整回归对上游每个未修改功能没有逐项重做；打包验证确保未涉及资源的内容保持原样。
 
-## 本次验收结果
+## 聊天管理阶段验收结果
 
 - `npm test`：10 项逻辑、宿主存储与构建归档测试通过。
 - `npm run test:ui`：5 项浏览器场景通过（桌面 960×1000、窄屏 390×740）。
@@ -83,3 +83,6 @@ node test/vscode-ui-controller.mjs
 - 定制归档：只修改 3 个原有 JS 文件并新增 4 个模块，无删除条目；其他原条目内容一致，ZIP CRC 有效。原生程序未修改。
 
 原始详细报告在本机 `reports/`，不提交运行日志或用户聊天内容。
+
+后续持续恢复构建已替换主 Rust 引擎；当前 VSIX 差异与新引擎验收见
+[持续恢复实现与验收](../../docs/research/vscode-persistent-recovery.md)。

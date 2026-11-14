@@ -1,6 +1,6 @@
 //! Shared retry and transport fallback decisions for Responses requests.
 //! Content-filter guidance is recorded for sampling requests before retry decisions.
-//! Server advice controls timing without extending configured retry limits.
+//! Custom persistent recovery retains fast retries, then waits until the provider recovers.
 
 use std::time::Duration;
 
@@ -22,6 +22,53 @@ use tracing::warn;
 
 const INITIAL_CONNECTION_RETRY_DELAY: Duration = Duration::from_secs(5);
 const MAX_CONNECTION_RETRY_DELAY: Duration = Duration::from_secs(60);
+const INITIAL_PROVIDER_RECOVERY_DELAY: Duration = Duration::from_secs(15);
+pub(crate) const MAX_PROVIDER_RECOVERY_DELAY: Duration = Duration::from_secs(300);
+
+/// Only errors produced by the remote model request belong in persistent recovery.
+/// User cancellation, local policy, invalid local state and context repair retain their semantics.
+pub(crate) fn is_provider_failure(err: &CodexErr) -> bool {
+    matches!(
+        err.details(),
+        CodexErrorDetails::ConnectionFailed(_)
+            | CodexErrorDetails::UnexpectedStatus(_)
+            | CodexErrorDetails::ResponseStreamFailed(_)
+            | CodexErrorDetails::Stream(_)
+            | CodexErrorDetails::RequestTimeout
+            | CodexErrorDetails::Timeout
+            | CodexErrorDetails::RetryLimit(_)
+            | CodexErrorDetails::InternalServerError
+            | CodexErrorDetails::ServerOverloaded
+            | CodexErrorDetails::PolicyCapacityUnavailable
+            | CodexErrorDetails::RateLimitExceeded(_)
+            | CodexErrorDetails::QuotaExceeded
+            | CodexErrorDetails::UsageLimitReached(_)
+            | CodexErrorDetails::UsageNotIncluded
+            | CodexErrorDetails::ModelNotFound { .. }
+            | CodexErrorDetails::InvalidRequest(_)
+            | CodexErrorDetails::ResponseIncomplete(_)
+            | CodexErrorDetails::RefreshTokenFailed(_)
+            | CodexErrorDetails::GatewayLoginRequired(_)
+            | CodexErrorDetails::WorkspaceAccessDenied(_)
+            | CodexErrorDetails::AccessProgramNotEnabled(_)
+            | CodexErrorDetails::FlexUnavailable
+    )
+}
+
+pub(crate) fn persistent_provider_retries(turn: &TurnContext) -> bool {
+    turn.config
+        .features
+        .enabled(Feature::PersistentProviderRetries)
+}
+
+/// Returns a deadline capped across both server advice and local backoff.
+fn bounded_retry_deadline(advice: Option<RetryAfter>, delay: Duration) -> Instant {
+    let now = Instant::now();
+    advice
+        .map(RetryAfter::deadline)
+        .unwrap_or(now + delay)
+        .min(now + MAX_PROVIDER_RECOVERY_DELAY)
+}
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum ResponsesStreamRequest {
@@ -33,6 +80,8 @@ pub(crate) struct ResponsesStreamRetryState {
     retries: u64,
     connection_retries: u64,
     connection_retry_delay: Duration,
+    provider_recovery_attempts: u64,
+    provider_recovery_delay: Duration,
 }
 
 impl Default for ResponsesStreamRetryState {
@@ -41,7 +90,57 @@ impl Default for ResponsesStreamRetryState {
             retries: 0,
             connection_retries: 0,
             connection_retry_delay: INITIAL_CONNECTION_RETRY_DELAY,
+            provider_recovery_attempts: 0,
+            provider_recovery_delay: INITIAL_PROVIDER_RECOVERY_DELAY,
         }
+    }
+}
+
+impl ResponsesStreamRetryState {
+    pub(crate) fn is_recovering_provider(&self) -> bool {
+        self.provider_recovery_attempts > 0
+    }
+
+    fn next_provider_recovery_delay(&mut self) -> Duration {
+        let delay = self.provider_recovery_delay;
+        self.provider_recovery_attempts = self.provider_recovery_attempts.saturating_add(1);
+        self.provider_recovery_delay = delay.saturating_mul(2).min(MAX_PROVIDER_RECOVERY_DELAY);
+        delay
+    }
+
+    /// The caller must poll this future under its turn/background cancellation token.
+    pub(crate) async fn recover_provider(
+        &mut self,
+        sess: &Session,
+        turn: &TurnContext,
+        err: CodexErr,
+        request: ResponsesStreamRequest,
+    ) -> Result<(), CodexErr> {
+        if !persistent_provider_retries(turn) || !is_provider_failure(&err) {
+            return Err(err);
+        }
+        let delay = self.next_provider_recovery_delay();
+        // Short or expired advice must not turn persistent recovery into a busy loop.
+        let advice = err
+            .retry_after()
+            .filter(|advice| advice.remaining_delay() > delay);
+        let retry_at = bounded_retry_deadline(advice, delay);
+        let wait = retry_at.saturating_duration_since(Instant::now());
+        warn!(turn_id = %turn.sub_id, attempt = self.provider_recovery_attempts,
+            retry_delay_ms = wait.as_millis(), error = %err, "waiting for model provider recovery");
+        let attempt = self.provider_recovery_attempts;
+        let seconds = wait.as_secs_f64().ceil() as u64;
+        let message = format!(
+            "Reconnecting... waiting for provider recovery (attempt {attempt}, next retry in {seconds}s; stop to cancel)"
+        );
+        sess.notify_stream_error(turn, message, err).await;
+        let operation = match request {
+            ResponsesStreamRequest::Sampling => RetryOperation::Sampling,
+            ResponsesStreamRequest::RemoteCompactionV2 => RetryOperation::RemoteCompactionV2,
+        };
+        codex_client::record_retry!(self.provider_recovery_attempts, wait, operation);
+        tokio::time::sleep_until(retry_at).await;
+        Ok(())
     }
 }
 
@@ -86,8 +185,17 @@ pub(crate) async fn handle_response_stream_error(
         ResponsesStreamRequest::RemoteCompactionV2 => RetryOperation::RemoteCompactionV2,
     };
     let retry_count = retry_state.retries.saturating_add(1);
+    let persistent = persistent_provider_retries(turn_context);
+    // Once slow recovery starts, do not restart the fast retry budget on every failure.
+    if retry_state.is_recovering_provider() {
+        return retry_state
+            .recover_provider(sess, turn_context, err, request)
+            .await;
+    }
     let Some(delay) = err.retry_delay(retry_count) else {
-        return Err(err);
+        return retry_state
+            .recover_provider(sess, turn_context, err, request)
+            .await;
     };
     let retry_after = err.retry_after();
 
@@ -127,7 +235,12 @@ pub(crate) async fn handle_response_stream_error(
     if switched {
         // Changing transport must not bypass the server's retry deadline.
         if let Some(retry_after) = retry_after {
-            tokio::time::sleep_until(retry_after.deadline()).await;
+            tokio::time::sleep_until(if persistent {
+                bounded_retry_deadline(Some(retry_after), delay)
+            } else {
+                retry_after.deadline()
+            })
+            .await;
         }
         sess.send_event(
             turn_context,
@@ -164,13 +277,22 @@ pub(crate) async fn handle_response_stream_error(
         }
         // Use one clock sample so local backoff telemetry retains the selected delay.
         let now = Instant::now();
-        let retry_at = retry_after.map(RetryAfter::deadline).unwrap_or(now + delay);
+        let retry_at = if persistent {
+            bounded_retry_deadline(retry_after, delay)
+        } else {
+            retry_after.map(RetryAfter::deadline).unwrap_or(now + delay)
+        };
         let delay = retry_at.saturating_duration_since(now);
         codex_client::record_retry!(retry_count, delay, operation);
         tokio::time::sleep_until(retry_at).await;
         return Ok(());
     }
 
+    if persistent && is_provider_failure(&err) {
+        return retry_state
+            .recover_provider(sess, turn_context, err, request)
+            .await;
+    }
     sess.services
         .thread_extension_data
         .insert(ExhaustedResponseRetry {

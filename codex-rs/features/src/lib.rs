@@ -237,6 +237,8 @@ pub enum Feature {
     EnableRequestCompression,
     /// Keep active sampling turns alive until a failed network connection recovers.
     UnboundedConnectionRetries,
+    /// Keep failed model-provider requests alive with bounded long recovery waits.
+    PersistentProviderRetries,
     /// Start the managed network proxy for sandboxed sessions.
     NetworkProxy,
     /// Mask credentials and inject them through an already enabled network proxy.
@@ -1605,6 +1607,12 @@ pub const FEATURES: &[FeatureSpec] = &[
         key: "enable_request_compression",
         stage: Stage::Stable,
         default_enabled: true,
+    },
+    FeatureSpec {
+        id: Feature::PersistentProviderRetries,
+        key: "persistent_provider_retries",
+        stage: Stage::Stable,
+        default_enabled: false,
     },
     FeatureSpec {
         id: Feature::UnboundedConnectionRetries,

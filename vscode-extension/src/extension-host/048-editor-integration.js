@@ -1071,6 +1071,9 @@ var IHe = "1",
             "features.code_mode_host=true",
             "-c",
             "features.windows_sandbox_service=true",
+            ...(_d.extensions.getExtension("openai.chatgpt")?.packageJSON?.codexxEngine?.persistentProviderRetries
+              ? ["-c", `features.persistent_provider_retries=${Wn("persistentProviderRetries") !== false}`]
+              : []),
             "app-server",
             "--analytics-default-enabled",
           ])),

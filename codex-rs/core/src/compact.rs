@@ -293,6 +293,7 @@ async fn run_compact_task_inner_impl(
 
     let max_retries = turn_context.provider.info().stream_max_retries();
     let mut retries = 0;
+    let mut recovery = crate::responses_retry::ResponsesStreamRetryState::default();
     // Reuse one client session so turn-scoped state (sticky routing and websocket incremental
     // request tracking) survives retries within this compact turn.
     let mut client_session = sess.services.model_client.new_session();
@@ -357,10 +358,28 @@ async fn run_compact_task_inner_impl(
                 sess.set_total_tokens_full(turn_context.as_ref()).await;
                 return Err(e);
             }
+            Err(e) if recovery.is_recovering_provider() => {
+                recovery
+                    .recover_provider(
+                        &sess,
+                        &turn_context,
+                        e,
+                        crate::responses_retry::ResponsesStreamRequest::Sampling,
+                    )
+                    .await?;
+            }
             Err(e) if retries < max_retries => {
                 retries += 1;
                 let Some(delay) = e.retry_delay(retries) else {
-                    return Err(e);
+                    recovery
+                        .recover_provider(
+                            &sess,
+                            &turn_context,
+                            e,
+                            crate::responses_retry::ResponsesStreamRequest::Sampling,
+                        )
+                        .await?;
+                    continue;
                 };
                 let retry_after = e.retry_after();
                 sess.notify_stream_error(
@@ -372,9 +391,27 @@ async fn run_compact_task_inner_impl(
                 let retry_at = retry_after
                     .map(RetryAfter::deadline)
                     .unwrap_or_else(|| tokio::time::Instant::now() + delay);
+                let retry_at = if crate::responses_retry::persistent_provider_retries(&turn_context)
+                {
+                    retry_at.min(
+                        tokio::time::Instant::now()
+                            + crate::responses_retry::MAX_PROVIDER_RECOVERY_DELAY,
+                    )
+                } else {
+                    retry_at
+                };
                 tokio::time::sleep_until(retry_at).await;
             }
-            Err(e) => return Err(e),
+            Err(e) => {
+                recovery
+                    .recover_provider(
+                        &sess,
+                        &turn_context,
+                        e,
+                        crate::responses_retry::ResponsesStreamRequest::Sampling,
+                    )
+                    .await?;
+            }
         }
     };
 

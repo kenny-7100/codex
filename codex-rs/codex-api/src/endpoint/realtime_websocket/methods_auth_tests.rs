@@ -45,6 +45,7 @@ fn client(base_url: String) -> RealtimeWebsocketClient {
             query_params: None,
             headers: HeaderMap::new(),
             retry: RetryConfig {
+                max_delay: None,
                 max_attempts: 1,
                 base_delay: Duration::from_millis(1),
                 retry_429: false,

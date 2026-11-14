@@ -2039,7 +2039,10 @@ async fn run_sampling_request(
                     if let Some(rate_limits) = rate_limits {
                         sess.update_rate_limits(&turn_context, *rate_limits).await;
                     }
-                    return Err(err);
+                    if !crate::responses_retry::persistent_provider_retries(&turn_context) {
+                        return Err(err);
+                    }
+                    err
                 }
                 CodexErrorDetails::SessionBudgetExceeded
                 | CodexErrorDetails::InferenceHookDenied { .. }

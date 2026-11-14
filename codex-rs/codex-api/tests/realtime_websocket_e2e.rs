@@ -75,6 +75,7 @@ fn test_provider(base_url: String) -> Provider {
         query_params: Some(HashMap::new()),
         headers: HeaderMap::new(),
         retry: RetryConfig {
+            max_delay: None,
             max_attempts: 1,
             base_delay: Duration::from_millis(1),
             retry_429: false,

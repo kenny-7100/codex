@@ -9,6 +9,8 @@ use std::time::Duration;
 pub struct RetryPolicy {
     pub max_attempts: u64,
     pub base_delay: Duration,
+    /// Optional ceiling for both local backoff and Retry-After advice.
+    pub max_delay: Option<Duration>,
     pub retry_on: RetryOn,
 }
 
@@ -104,12 +106,14 @@ where
                 let delay = retry_after
                     .map(RetryAfter::remaining_delay)
                     .unwrap_or_else(|| backoff(policy.base_delay, retry_attempt));
+                let now = tokio::time::Instant::now();
+                let retry_at = retry_after.map(RetryAfter::deadline).unwrap_or(now + delay);
+                let retry_at = policy
+                    .max_delay
+                    .map_or(retry_at, |cap| retry_at.min(now + cap));
+                let delay = retry_at.saturating_duration_since(now);
                 crate::record_retry!(retry_attempt, delay, RetryOperation::HttpRequest);
-                if let Some(retry_after) = retry_after {
-                    tokio::time::sleep_until(retry_after.deadline()).await;
-                } else {
-                    tokio::time::sleep(delay).await;
-                }
+                tokio::time::sleep_until(retry_at).await;
             }
             Err(err) => return Err(err),
         }

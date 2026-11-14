@@ -306,6 +306,7 @@ pub struct ModelClient {
     event_sender: Option<Sender<ProtocolEvent>>,
     http_client_factory: HttpClientFactory,
     restored_history: bool,
+    provider_retry_max_delay: Option<Duration>,
     request_contributors: Vec<Arc<dyn codex_extension_api::ModelRequestContributor>>,
     executed_tool_calls: Option<ExecutedToolCalls>,
     // Resolved once when the session is created, like other session feature flags.
@@ -643,6 +644,7 @@ impl ModelClient {
             event_sender: None,
             http_client_factory,
             restored_history: false,
+            provider_retry_max_delay: None,
             request_contributors,
             executed_tool_calls: None,
             api_key_cyber_access_programs:
@@ -660,6 +662,12 @@ impl ModelClient {
         self.state.reasoning_effort_override_enabled
             && self.state.provider.info().is_openai()
             && model_info.supports_reasoning_effort_updates
+    }
+
+    pub(crate) fn with_persistent_provider_retries(mut self, enabled: bool) -> Self {
+        self.provider_retry_max_delay =
+            enabled.then_some(crate::responses_retry::MAX_PROVIDER_RECOVERY_DELAY);
+        self
     }
 
     pub(crate) fn with_restored_history(mut self, restored_history: bool) -> Self {
@@ -1361,7 +1369,7 @@ impl ModelClient {
             ClientRouting::Workspace => Some(&self.state.workspace_routing),
             ClientRouting::ConfiguredProvider => None,
         };
-        codex_model_provider::resolve_request(
+        let mut setup = codex_model_provider::resolve_request(
             provider.as_ref(),
             Some(ProviderAuthScope {
                 agent_identity_policy: self.agent_identity_policy,
@@ -1371,7 +1379,9 @@ impl ModelClient {
             routing,
             self.http_client_factory.clone(),
         )
-        .await
+        .await?;
+        setup.api_provider.retry.max_delay = self.provider_retry_max_delay;
+        Ok(setup)
     }
 
     fn responses_headers(&self, auth: Option<&CodexAuth>, model: &str) -> ApiHeaderMap {

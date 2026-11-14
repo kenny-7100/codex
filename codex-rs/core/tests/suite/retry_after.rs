@@ -406,6 +406,7 @@ async fn http_retry_backoff_exhausts_attempts() {
     let attempts = Mutex::new(Vec::new());
     let result = run_with_retry(
         RetryPolicy {
+            max_delay: None,
             max_attempts: 2,
             base_delay: Duration::from_millis(200),
             retry_on: RetryOn {
@@ -461,6 +462,7 @@ async fn exhausted_http_retries_preserve_deadline_through_error_mapping() {
     let started = Instant::now();
     let transport_error = run_with_retry(
         RetryPolicy {
+            max_delay: None,
             max_attempts: 1,
             base_delay: Duration::from_millis(200),
             retry_on: RetryOn {

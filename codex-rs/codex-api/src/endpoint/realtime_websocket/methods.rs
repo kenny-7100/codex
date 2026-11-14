@@ -2375,6 +2375,7 @@ mod tests {
             query_params: None,
             headers: HeaderMap::new(),
             retry: RetryConfig {
+                max_delay: None,
                 max_attempts: 0,
                 base_delay: Duration::ZERO,
                 retry_429: false,
@@ -2571,6 +2572,7 @@ mod tests {
             query_params: Some(HashMap::new()),
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
+                max_delay: None,
                 max_attempts: 1,
                 base_delay: Duration::from_millis(1),
                 retry_429: false,
@@ -2897,6 +2899,7 @@ mod tests {
             query_params: Some(HashMap::new()),
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
+                max_delay: None,
                 max_attempts: 1,
                 base_delay: Duration::from_millis(1),
                 retry_429: false,
@@ -3024,6 +3027,7 @@ mod tests {
             query_params: Some(HashMap::new()),
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
+                max_delay: None,
                 max_attempts: 1,
                 base_delay: Duration::from_millis(1),
                 retry_429: false,
@@ -3130,6 +3134,7 @@ mod tests {
             query_params: Some(HashMap::new()),
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
+                max_delay: None,
                 max_attempts: 1,
                 base_delay: Duration::from_millis(1),
                 retry_429: false,
@@ -3222,6 +3227,7 @@ mod tests {
             query_params: Some(HashMap::new()),
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
+                max_delay: None,
                 max_attempts: 1,
                 base_delay: Duration::from_millis(1),
                 retry_429: false,

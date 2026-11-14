@@ -497,6 +497,7 @@ other non-default provider fields are not supported"
             headers.insert(RESIDENCY_HEADER_NAME, value);
         }
         let retry = ApiRetryConfig {
+            max_delay: None,
             max_attempts: self.request_max_retries(),
             base_delay: Duration::from_millis(200),
             retry_429: false,

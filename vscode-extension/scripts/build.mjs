@@ -3,6 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { astHash, hash, json, reference, root, walk, write, writeJSON } from './common.mjs';
 import { hostSourceMap } from './source-map.mjs';
+import { installCustomEngine } from './custom-engine.mjs';
 
 const manifest = await json(path.join(root, 'recovery-manifest.json'));
 if (manifest.failures.length) throw new Error('Recovery contains failures. Repair them before building.');
@@ -25,8 +26,12 @@ const hostEqual = astHash(hostSource, 'script') === manifest.hostAstHash;
 if (!hostEqual || readable || debug) await write(path.join(target, 'out/extension.js'), hostSource + (debug ? '\n//# sourceMappingURL=extension.js.map\n' : ''));
 if (debug) await writeJSON(path.join(target, 'out/extension.js.map'), hostSourceMap(hostFragments, manifest.host.map(h => path.join(root, h.path)), path.join(target, 'out/extension.js')));
 if (!hostEqual) changes.push('out/extension.js');
-const extensionManifest = await fs.readFile(path.join(root, 'src/manifest.json'));
-JSON.parse(extensionManifest);
+let extensionManifest = await fs.readFile(path.join(root, 'src/manifest.json'));
+const customEngine = await installCustomEngine(root, target);
+if (customEngine) {
+  extensionManifest = Buffer.from(JSON.stringify({ ...JSON.parse(extensionManifest), codexxEngine: customEngine }, null, 2) + '\n');
+  changes.push('bin/macos-aarch64/codex');
+}
 await write(path.join(target, 'package.json'), extensionManifest);
 if (hash(extensionManifest) !== manifest.manifestRawHash) changes.push('package.json');
 let checked = 0;
@@ -68,5 +73,5 @@ try {
     }
   }
 } catch (e) { if (e.code !== 'ENOENT') throw e; }
-await writeJSON(path.join(root, 'reports/build.json'), { mode: debug ? 'debug' : readable ? 'readable' : 'exact-if-unchanged', hostAstEqual: hostEqual, sourceFilesChecked: checked, changedFiles: changes });
+await writeJSON(path.join(root, 'reports/build.json'), { mode: debug ? 'debug' : readable ? 'readable' : 'exact-if-unchanged', hostAstEqual: hostEqual, sourceFilesChecked: checked, customEngine, changedFiles: changes });
 console.log(`Built ${target}; ${changes.length} authored payload changes; host AST baseline equal: ${hostEqual}.`);
