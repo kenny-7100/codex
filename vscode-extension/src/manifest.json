@@ -95,6 +95,21 @@
         "title": "Debug: reset NUX state",
         "category": "Jimao",
         "enablement": "chatgpt.sidebarView.visible"
+      },
+      {
+        "command": "chatgpt.startLanAccess",
+        "title": "开启局域网访问",
+        "category": "Jimao"
+      },
+      {
+        "command": "chatgpt.stopLanAccess",
+        "title": "关闭当前窗口的局域网访问",
+        "category": "Jimao"
+      },
+      {
+        "command": "chatgpt.copyLanAddress",
+        "title": "复制局域网访问地址",
+        "category": "Jimao"
       }
     ],
     "keybindings": [
@@ -177,6 +192,13 @@
           "description": "Deprecated. To run Jimao in WSL, reopen your folder using the Microsoft WSL extension. Turn this setting off to run Jimao on Windows. Changing it reloads the window.",
           "type": "boolean",
           "default": false
+        },
+        "chatgpt.lanPort": {
+          "type": "number",
+          "default": 8765,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Jimao 局域网共享入口端口。所有已接入窗口使用同一端口，停止全部窗口后可更改。"
         }
       }
     },

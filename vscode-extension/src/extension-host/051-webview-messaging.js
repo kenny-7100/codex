@@ -2222,7 +2222,7 @@ var q4t = d.object({
             customAvatars: this.customAvatars.rpc,
             repositoryOrigins: new qL(this.gitManager, this.appServerClient),
             fileAttachments: {
-              pickFiles: qHe,
+              pickFiles: e.pickFiles ? (c) => e.pickFiles(c) : qHe,
               countFolderFiles: ({ folderPath: c }) => p$e(c, this.appServerClient),
             },
             openIn: this.openIn,

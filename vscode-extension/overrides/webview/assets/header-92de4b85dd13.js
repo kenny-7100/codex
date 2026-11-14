@@ -794,6 +794,9 @@ function Gt(e) {
     c = ye(),
     [l, u] = (0, Jt.useState)(!1),
     m;
+  Jt.useEffect(() => {
+    if (window.__jimaoLan) window.dispatchEvent(new CustomEvent("jimao-route", { detail: a.pathname + a.search }));
+  }, [a.pathname, a.search]);
   t[2] === Symbol.for(`react.memo_cache_sentinel`)
     ? ((m = () => {
         u(!1);

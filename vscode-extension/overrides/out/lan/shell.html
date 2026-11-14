@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Jimao</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: #181818;
+      color: #ddd;
+      font: 14px system-ui;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #444;
+    }
+    select,
+    button {
+      font: inherit;
+      background: #252525;
+      color: #ddd;
+      border: 1px solid #555;
+      border-radius: 5px;
+      padding: 5px;
+      max-width: 65vw;
+    }
+    iframe {
+      border: 0;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+    }
+    #status {
+      font-size: 12px;
+      color: #aaa;
+    }
+    #empty {
+      padding: 24px;
+    }
+    strong {
+      font-size: 15px;
+    }
+  </style>
+  <header>
+    <strong>Jimao</strong
+    ><select id="windows" aria-label="窗口 / 工作区">
+      <option value="">选择 VS Code 窗口</option></select
+    ><span id="status">正在连接…</span>
+  </header>
+  <div id="empty">请在需要访问的 VS Code 窗口中开启 Jimao 局域网访问。</div>
+  <iframe id="view" title="Jimao 聊天" hidden></iframe>
+  <script>
+    const select = document.querySelector("select"),
+      status = document.querySelector("#status"),
+      empty = document.querySelector("#empty");
+    let frame = document.querySelector("iframe"),
+      selected = "",
+      generation = 0;
+    const sessions = new Map();
+    async function switchWindow(id) {
+      const turn = ++generation;
+      frame.hidden = true;
+      frame.removeAttribute("id");
+      selected = id;
+      sessionStorage.setItem("jimao-window", id);
+      if (!id) {
+        empty.hidden = false;
+        return;
+      }
+      const cached = sessions.get(id);
+      if (cached) {
+        frame = cached.frame;
+        frame.id = "view";
+        frame.hidden = false;
+        empty.hidden = true;
+        status.textContent = "已连接";
+        return;
+      }
+      status.textContent = "正在连接…";
+      try {
+        const r = await fetch("/connect", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ windowId: id }),
+        });
+        if (!r.ok) throw Error("窗口已断开");
+        const data = await r.json();
+        if (turn !== generation) {
+          fetch("/disconnect/" + data.id, { method: "POST" });
+          return;
+        }
+        frame = document.createElement("iframe");
+        frame.title = "Jimao 聊天";
+        frame.id = "view";
+        document.body.append(frame);
+        sessions.set(id, { client: data.id, frame });
+        frame.src = "/frame/" + data.id;
+        empty.hidden = true;
+      } catch (e) {
+        status.textContent = e.message;
+      }
+    }
+    async function refresh() {
+      try {
+        const r = await fetch("/windows"),
+          list = await r.json();
+        const chosen = selected || sessionStorage.getItem("jimao-window") || "";
+        select.replaceChildren(
+          new Option("选择 VS Code 窗口", ""),
+          ...list.map(
+            (w) =>
+              new Option(
+                w.name + (w.folders.length ? " — " + w.folders.join(", ") : ""),
+                w.id,
+              ),
+          ),
+        );
+        select.value = list.some((w) => w.id === chosen) ? chosen : "";
+        for (const [id, session] of sessions)
+          if (!list.some((w) => w.id === id)) {
+            session.frame.remove();
+            sessions.delete(id);
+          }
+        if (selected && !list.some((w) => w.id === selected)) {
+          status.textContent = "所选窗口已断开";
+          empty.hidden = false;
+          empty.textContent = "窗口已断开，请重新选择。";
+        } else if (!selected) {
+          status.textContent = list.length + " 个窗口在线";
+          if (select.value) switchWindow(select.value);
+        }
+      } catch {
+        status.textContent = "服务已断开，正在重连…";
+      }
+    }
+    select.onchange = () => switchWindow(select.value);
+    window.addEventListener("message", (e) => {
+      if (e.data?.type === "jimao-reconnect") {
+        const id = e.data.windowId,
+          session = sessions.get(id);
+        if (!session || e.source !== session.frame.contentWindow) return;
+        sessions.delete(id);
+        session.frame.remove();
+        fetch("/disconnect/" + session.client, { method: "POST" }).catch(
+          () => {},
+        );
+        if (selected === id) switchWindow(id);
+        return;
+      }
+      if (
+        e.source === frame.contentWindow &&
+        e.data?.type === "jimao-connection"
+      )
+        status.textContent = e.data.status;
+    });
+    window.addEventListener("pagehide", () => {
+      for (const s of sessions.values())
+        navigator.sendBeacon("/disconnect/" + s.client, "{}");
+    });
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</html>

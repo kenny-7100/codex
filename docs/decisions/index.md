@@ -7,5 +7,6 @@
 | --- | --- | --- |
 | [001 本地插件参考产物](001-reference-artifacts.md) | 当前采用 | 2026-11-14 |
 | [002 Jimao 显示品牌与原扩展身份](002-jimao-branding.md) | 当前采用 | 2026-11-14 |
+| [003 Jimao 局域网共享入口与窗口归属](003-jimao-lan-gateway.md) | 当前采用 | 2026-11-14 |
 
 协作资料与 Skill 的组织约定见 [知识维护规则](../collaboration/knowledge-maintenance.md)。

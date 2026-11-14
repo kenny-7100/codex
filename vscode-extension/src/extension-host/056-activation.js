@@ -638,6 +638,7 @@ async function IZt(t) {
         Ct.reportEphemeralGenerationTokenUsage(oe);
       }),
     }));
+  require("./lan/host.cjs").register(Et, t, Ct);
   let et = new KB(Ct, We);
   if (
     (e.push(Et.window.registerUriHandler(et)),

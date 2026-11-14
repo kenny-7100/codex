@@ -7,6 +7,7 @@
 | [分支定位与长期方向](project-direction.md) | 个人定制、移植、调试和学习平台的目标与当前边界 |
 | [插件包阅读指南](../../references/vscode-extension/README.md) | 下载版本、文件结构、搜索方法及源码对照线索 |
 | [插件可定制重建工程](../../vscode-extension/README.md) | 可编辑宿主、Webview 恢复、构建与字节一致性验证 |
+| [Jimao 家庭局域网访问](../../vscode-extension/docs/lan-access.md) | 共享入口进程、窗口选择器、原宿主消息桥、图片与真实宿主验收 |
 | [聊天管理定制与验收](../../vscode-extension/docs/chat-management.md) | 名称、时间、标签搜索，改名与标签持久化，以及真实宿主验收入口 |
 | [Rust 引擎开发与交付条件](vscode-engine-development.md) | 当前 Mac 环境、持续恢复需求、Rust 修改位置、VSIX 内置引擎安装与实施前置条件 |
 | [持续恢复实现与验收](vscode-persistent-recovery.md) | 定制恢复状态机、外置 Rust 构建环境、故障注入、原生引擎打包与回退 |

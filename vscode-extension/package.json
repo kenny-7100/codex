@@ -17,7 +17,8 @@
     "smoke": "node scripts/smoke.mjs",
     "check-imports": "node scripts/check-imports.mjs",
     "test:customization": "node scripts/customization-test.mjs",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "test:lan": "node test/lan-acceptance.mjs"
   },
   "devDependencies": {
     "@babel/parser": "7.28.5",
