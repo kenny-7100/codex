@@ -1,0 +1,100 @@
+{
+  "extensionId": "openai.chatgpt",
+  "version": "26.51111.21308",
+  "targetPlatform": "darwin-arm64",
+  "preRelease": true,
+  "downloadDate": "2026-11-14",
+  "marketplaceUrl": "https://marketplace.visualstudio.com/items?itemName=openai.chatgpt",
+  "downloadUrl": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Services.VSIXPackage",
+  "sha256": "6cbfc1bba9237e9d3287ab18f246041c0746b19b1c5cbf674a04b74849f840ae",
+  "archiveBytes": 354245795,
+  "upstreamCommit": "69231e119b",
+  "marketplaceVersion": {
+    "version": "26.51111.21308",
+    "targetPlatform": "darwin-arm64",
+    "flags": "validated",
+    "lastUpdated": "2026-11-13T01:41:10.81Z",
+    "files": [
+      {
+        "assetType": "Microsoft.VisualStudio.Code.Manifest",
+        "source": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Code.Manifest"
+      },
+      {
+        "assetType": "Microsoft.VisualStudio.Services.Content.Details",
+        "source": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Services.Content.Details"
+      },
+      {
+        "assetType": "Microsoft.VisualStudio.Services.Content.License",
+        "source": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Services.Content.License"
+      },
+      {
+        "assetType": "Microsoft.VisualStudio.Services.Icons.Default",
+        "source": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Services.Icons.Default"
+      },
+      {
+        "assetType": "Microsoft.VisualStudio.Services.Icons.Small",
+        "source": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Services.Icons.Small"
+      },
+      {
+        "assetType": "Microsoft.VisualStudio.Services.VsixManifest",
+        "source": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Services.VsixManifest"
+      },
+      {
+        "assetType": "Microsoft.VisualStudio.Services.VSIXPackage",
+        "source": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Services.VSIXPackage"
+      },
+      {
+        "assetType": "Microsoft.VisualStudio.Services.VsixSignature",
+        "source": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235/Microsoft.VisualStudio.Services.VsixSignature"
+      }
+    ],
+    "properties": [
+      {
+        "key": "Microsoft.VisualStudio.Code.Engine",
+        "value": "^1.96.2"
+      },
+      {
+        "key": "Microsoft.VisualStudio.Services.GitHubFlavoredMarkdown",
+        "value": "true"
+      },
+      {
+        "key": "Microsoft.VisualStudio.Code.ExtensionDependencies",
+        "value": ""
+      },
+      {
+        "key": "Microsoft.VisualStudio.Code.ExtensionPack",
+        "value": "openai.codex-audio"
+      },
+      {
+        "key": "Microsoft.VisualStudio.Code.LocalizedLanguages",
+        "value": ""
+      },
+      {
+        "key": "Microsoft.VisualStudio.Code.ExtensionKind",
+        "value": "workspace"
+      },
+      {
+        "key": "Microsoft.VisualStudio.Code.PreRelease",
+        "value": "true"
+      },
+      {
+        "key": "Microsoft.VisualStudio.Services.Content.Pricing",
+        "value": "Free"
+      },
+      {
+        "key": "Microsoft.VisualStudio.Code.EnabledApiProposals",
+        "value": "chatSessionsProvider,languageModelProxy"
+      },
+      {
+        "key": "Microsoft.VisualStudio.Code.ExecutesCode",
+        "value": "true"
+      },
+      {
+        "key": "Microsoft.VisualStudio.Services.VsixSha256",
+        "value": "6cbfc1bba9237e9d3287ab18f246041c0746b19b1c5cbf674a04b74849f840ae"
+      }
+    ],
+    "assetUri": "https://openai.gallerycdn.vsassets.io/extensions/openai/chatgpt/26.51111.21308/1794531952235",
+    "fallbackAssetUri": "https://openai.gallery.vsassets.io/_apis/public/gallery/publisher/openai/extension/chatgpt/26.51111.21308/assetbyname"
+  }
+}

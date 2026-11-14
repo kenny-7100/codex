@@ -1,0 +1,3 @@
+# Keep the reference guide and provenance in Git; downloaded release artifacts stay local.
+/*.vsix
+/openai.chatgpt-*/
