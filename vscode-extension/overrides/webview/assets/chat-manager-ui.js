@@ -16,6 +16,7 @@ import {
   rememberTitle,
 } from "./chat-manager-store.js";
 
+const PAGE_SIZE = 10;
 const instances = new WeakMap();
 let requestedTag = null;
 export function useChatManager(React) {
@@ -237,6 +238,9 @@ export function getChatManagerUI(React) {
       ...cleanFilters(getSnapshot().lastFilters),
       ...(requestedTag ? { tags: requestedTag } : {}),
     }));
+    const [page, setPage] = React.useState(1);
+    const resultsRef = React.useRef(null);
+    React.useEffect(() => setPage(1), [filters]);
     const [initialized, setInitialized] = React.useState(getSnapshot().ready);
     const [history, setHistory] = React.useState(null),
       [busy, setBusy] = React.useState(false),
@@ -292,39 +296,64 @@ export function getChatManagerUI(React) {
       setFilters((f) => ({ ...f, [field]: value }));
       setError("");
     };
-    const source = history
-      ? [...history, ...recentRows.filter((r) => r.hostId !== "local")]
-      : recentRows;
-    const unique = new Map(
-      source.map((row) => [
-        threadKey(row.hostId, row.id),
-        {
-          ...row,
-          title: state.titles[threadKey(row.hostId, row.id)] ?? row.title,
-        },
-      ]),
-    );
-    let filtered = [],
-      filterError = "";
-    // Date filters always apply to update time, regardless of the chosen list order.
-    try {
-      filtered = filterThreads(
-        [...unique.values()],
-        { ...filters, sort: "updated-desc" },
-        state.threads,
+    // Cache full-history filtering; only mount the current ten rows below.
+    const { filtered, filterError } = React.useMemo(() => {
+      const source = history
+        ? [...history, ...recentRows.filter((r) => r.hostId !== "local")]
+        : recentRows;
+      const unique = new Map(
+        source.map((row) => [
+          threadKey(row.hostId, row.id),
+          {
+            ...row,
+            title: state.titles[threadKey(row.hostId, row.id)] ?? row.title,
+          },
+        ]),
       );
-      filtered = filterThreads(filtered, { sort: filters.sort }, state.threads);
-    } catch (e) {
-      filterError = e.message;
-    }
-    const allTags = [
-      ...new Set(Object.values(state.threads).flatMap((t) => t.tags)),
-    ].sort((a, b) => a.localeCompare(b, "zh-CN"));
+      let filtered = [],
+        filterError = "";
+      // Date filters always apply to update time, regardless of the chosen list order.
+      try {
+        filtered = filterThreads(
+          [...unique.values()],
+          { ...filters, sort: "updated-desc" },
+          state.threads,
+        );
+        filtered = filterThreads(
+          filtered,
+          { sort: filters.sort },
+          state.threads,
+        );
+      } catch (e) {
+        filterError = e.message;
+      }
+      return { filtered, filterError };
+    }, [history, recentRows, state.titles, state.threads, filters]);
+    const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const currentPage = Math.min(page, pageCount);
+    const pageRows = filtered.slice(
+      (currentPage - 1) * PAGE_SIZE,
+      currentPage * PAGE_SIZE,
+    );
+    React.useEffect(() => {
+      setPage((value) => Math.min(value, pageCount));
+    }, [pageCount]);
+    React.useEffect(() => {
+      if (resultsRef.current) resultsRef.current.scrollTop = 0;
+    }, [currentPage, filters]);
+    const allTags = React.useMemo(
+      () =>
+        [...new Set(Object.values(state.threads).flatMap((t) => t.tags))].sort(
+          (a, b) => a.localeCompare(b, "zh-CN"),
+        ),
+      [state.threads],
+    );
     async function load() {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
       setBusy(true);
+      setPage(1);
       setError("");
       try {
         const rows = await searchHistory(request, DEFAULT_FILTERS, {
@@ -553,12 +582,13 @@ export function getChatManagerUI(React) {
       h(
         "div",
         {
+          "ref": resultsRef,
           "className": "cm-results",
           "aria-label": "聊天搜索结果",
           "aria-busy": busy,
         },
         filtered.length
-          ? filtered.map((row) =>
+          ? pageRows.map((row) =>
               h(
                 "div",
                 {
@@ -574,6 +604,21 @@ export function getChatManagerUI(React) {
               busy ? "正在加载…" : "没有匹配的聊天",
             ),
       ),
+      h(
+        "nav",
+        { "className": "cm-pagination", "aria-label": "聊天分页" },
+        button("上一页", () => setPage(currentPage - 1), {
+          disabled: currentPage <= 1,
+        }),
+        h(
+          "span",
+          { "className": "cm-page-info", "aria-live": "polite" },
+          `第 ${currentPage} / ${pageCount} 页 · 每页 ${PAGE_SIZE} 条`,
+        ),
+        button("下一页", () => setPage(currentPage + 1), {
+          disabled: currentPage >= pageCount,
+        }),
+      ),
     );
   }
   const api = { Timestamp, RowEnhancements, SearchPanel };
@@ -581,6 +626,7 @@ export function getChatManagerUI(React) {
   return api;
 }
 const CSS = `
+.cm-pagination{display:flex;align-items:center;justify-content:center;gap:10px;flex-shrink:0;padding-top:8px;border-top:1px solid var(--vscode-widget-border,#333)}.cm-page-info{color:var(--vscode-descriptionForeground,#aaa);font-variant-numeric:tabular-nums}
 .cm-search-panel{box-sizing:border-box;display:flex;flex-direction:column;gap:9px;width:calc(var(--radix-popper-available-width,100vw) - var(--padding-panel,24px));max-width:1040px;height:min(760px,80vh);max-height:var(--radix-popper-available-height,85vh);min-height:0;padding:12px;color:var(--vscode-foreground,#ddd);font-size:12px;overflow:hidden}
 .cm-search-panel *,.cm-chat-row *{box-sizing:border-box}.cm-toolbar,.cm-query-actions,.cm-saved-queries{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.cm-search-header{display:flex;align-items:center;gap:8px;flex-shrink:0}.cm-search-input{flex:1;min-width:0}.cm-search-panel .cm-close{flex-shrink:0;width:32px;height:32px;padding:0;font-size:22px;line-height:1;background:transparent;border-color:transparent}.cm-search-panel .cm-close:hover{background:var(--vscode-toolbar-hoverBackground,#444)}.cm-search-input input{width:100%;font-size:13px!important}.cm-filters{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:10px;flex-shrink:0}.cm-tags-filter{display:flex;align-items:end;gap:6px;min-width:0}.cm-tags-filter .cm-field{flex:1}.cm-list-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--vscode-widget-border,#333)}.cm-list-toolbar .cm-result-status{flex:1}.cm-list-toolbar select{max-width:120px}.cm-field{display:flex;flex-direction:column;gap:4px;min-width:0;color:var(--vscode-descriptionForeground,#aaa)}
 .cm-search-panel input:not([type=checkbox]),.cm-search-panel select,.cm-row-editor input{min-height:28px;min-width:0;border:1px solid var(--vscode-input-border,#444);border-radius:5px;background:var(--vscode-input-background,#242424);color:var(--vscode-input-foreground,#ddd);padding:5px 7px;font:inherit}.cm-search-panel input:focus,.cm-search-panel select:focus,.cm-row-editor input:focus{outline:1px solid var(--vscode-focusBorder,#409cff)}.cm-search-panel button,.cm-row-editor button,.cm-row-actions button{cursor:pointer;border:1px solid var(--vscode-button-border,#444);border-radius:5px;padding:4px 8px;background:var(--vscode-button-secondaryBackground,#333);color:var(--vscode-button-secondaryForeground,#ddd);font:inherit;white-space:nowrap}.cm-search-panel button:hover,.cm-row-editor button:hover{filter:brightness(1.15)}.cm-search-panel button:disabled,.cm-chat-row button:disabled{opacity:.4;cursor:default}.cm-search-panel .cm-primary{background:var(--vscode-button-background,#176ba8);color:var(--vscode-button-foreground,#fff)}

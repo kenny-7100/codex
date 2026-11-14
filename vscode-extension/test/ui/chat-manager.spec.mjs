@@ -76,7 +76,7 @@ test("history beyond 100 loads automatically, name search and list sorting work"
   await expect(page.locator('[data-result-id="fixture-120"]')).toBeVisible();
   await expect(page.locator("[data-result-id]")).toHaveCount(1);
   await page.getByRole("button", { name: "清空筛选" }).click();
-  await expect(page.locator("[data-result-id]")).toHaveCount(134);
+  await expect(page.locator("[data-result-id]")).toHaveCount(10);
   await page.getByLabel("排序", { exact: true }).selectOption("updated-asc");
   await expect(page.locator("[data-result-id]").first()).toHaveAttribute(
     "data-result-id",
@@ -158,4 +158,44 @@ test("tags stay beside titles and the top right close button closes and reopens 
   ).toBeVisible();
   await row.locator(".cm-tag").first().click();
   await expect(page.getByLabel("标签", { exact: true })).toHaveValue("test");
+});
+
+test("ten-row pages preserve global search and reset after filters, sorting and refresh", async ({
+  page,
+}) => {
+  const rows = page.locator("[data-result-id]");
+  const previous = page.getByRole("button", { name: "上一页", exact: true });
+  const next = page.getByRole("button", { name: "下一页", exact: true });
+  const info = page.locator(".cm-page-info");
+  await expect(rows).toHaveCount(10);
+  await expect(info).toHaveText("第 1 / 14 页 · 每页 10 条");
+  await expect(previous).toBeDisabled();
+  await next.click();
+  await expect(rows.first()).toHaveAttribute("data-result-id", "fixture-10");
+  await expect(rows).toHaveCount(10);
+  await previous.click();
+  await expect(rows.first()).toHaveAttribute("data-result-id", "fixture-0");
+  for (let i = 0; i < 13; i++) await next.click();
+  await expect(rows).toHaveCount(4);
+  await expect(info).toHaveText("第 14 / 14 页 · 每页 10 条");
+  await expect(next).toBeDisabled();
+  await page.getByLabel("聊天名称", { exact: true }).fill('"历史聊天 120"');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toHaveAttribute("data-result-id", "fixture-120");
+  await expect(info).toHaveText("第 1 / 1 页 · 每页 10 条");
+  await expect(previous).toBeDisabled();
+  await expect(next).toBeDisabled();
+  await page.getByLabel("聊天名称", { exact: true }).fill("没有这个聊天");
+  await expect(rows).toHaveCount(0);
+  await expect(previous).toBeDisabled();
+  await expect(next).toBeDisabled();
+  await page.getByRole("button", { name: "清空筛选" }).click();
+  await next.click();
+  await page.getByLabel("排序", { exact: true }).selectOption("updated-asc");
+  await expect(info).toHaveText("第 1 / 14 页 · 每页 10 条");
+  await expect(rows.first()).toHaveAttribute("data-result-id", "fixture-133");
+  await next.click();
+  await page.getByRole("button", { name: "刷新", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("134 个聊天");
+  await expect(info).toHaveText("第 1 / 14 页 · 每页 10 条");
 });
