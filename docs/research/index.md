@@ -4,6 +4,7 @@
 
 | 资料 | 用途 |
 | --- | --- |
+| [分支定位与长期方向](project-direction.md) | 个人定制、移植、调试和学习平台的目标与当前边界 |
 | [插件包阅读指南](../../references/vscode-extension/README.md) | 下载版本、文件结构、搜索方法及源码对照线索 |
 | [插件来源记录](../../references/vscode-extension/provenance.json) | 精确下载地址、SHA-256 和 Marketplace 元数据 |
 | [本地参考产物决策](../decisions/001-reference-artifacts.md) | 为什么保留完整下载产物并在 Git 中忽略 |
