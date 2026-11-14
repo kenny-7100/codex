@@ -183,8 +183,19 @@ try {
   await page.screenshot({ path: "reports/lan-initial.png", fullPage: true });
   let frame = page.frames().find((f) => f.url().includes("/frame/"));
 
+  async function assertActionIcon(button) {
+    await button.waitFor();
+    const colors = await button.evaluate((el) => {
+      const icon = el.querySelector("svg");
+      if (!icon) throw Error("Composer action icon missing");
+      return { foreground: getComputedStyle(icon).color, background: getComputedStyle(el).backgroundColor };
+    });
+    assert.notEqual(colors.foreground, colors.background, "Action icon must contrast with button");
+    assert.notEqual(colors.foreground, "rgb(221, 221, 221)", "Icon must not inherit page text on light action button");
+  }
   const editor = frame.locator('[contenteditable="true"]').first();
   await editor.fill("Say hello for LAN acceptance");
+  await assertActionIcon(frame.getByRole("button", { name: "Send", exact: true }));
   await editor.press("Enter");
   await frame
     .getByText("LAN acceptance response.", { exact: true })
@@ -307,6 +318,8 @@ try {
     .getByRole("button", { name: /Stop|停止/ })
     .first()
     .waitFor({ timeout: 15000 });
+  await assertActionIcon(frame.getByRole("button", { name: /Stop|停止/ }).first());
+  await page.screenshot({ path: "reports/lan-stop-icon.png" });
   // A transport outage must preserve the running turn and never resubmit it.
   for (
     let i = 0;
