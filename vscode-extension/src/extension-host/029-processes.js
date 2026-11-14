@@ -1412,19 +1412,19 @@ var FDe,
     FDe = [
       {
         id: "implementTodo",
-        vscodeCommand: { title: "Implement with Codex", enablement: "false" },
+        vscodeCommand: { title: "Implement with Jimao", enablement: "false" },
       },
       {
         id: "openSidebar",
         vscodeCommand: {
-          title: "Open Codex Sidebar",
-          icon: { light: "resources/blossom-black.svg", dark: "resources/blossom-white.svg" },
+          title: "Open Jimao Sidebar",
+          icon: { light: "resources/jimao.svg", dark: "resources/jimao.svg" },
         },
       },
-      { id: "newCodexPanel", vscodeCommand: { title: "New Codex Agent", icon: "$(plus)" } },
-      { id: "addToThread", vscodeCommand: { title: "Add to Codex Chat" } },
-      { id: "addFileToThread", vscodeCommand: { title: "Add File to Codex Chat" } },
-      { id: "showLspMcpCliArgs", vscodeCommand: { title: "Copy Codex CLI args for LSP MCP" } },
+      { id: "newCodexPanel", vscodeCommand: { title: "New Jimao Agent", icon: "$(plus)" } },
+      { id: "addToThread", vscodeCommand: { title: "Add to Jimao Chat" } },
+      { id: "addFileToThread", vscodeCommand: { title: "Add File to Jimao Chat" } },
+      { id: "showLspMcpCliArgs", vscodeCommand: { title: "Copy Jimao CLI args for LSP MCP" } },
       {
         id: "dumpNuxState",
         vscodeCommand: {

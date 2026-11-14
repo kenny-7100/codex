@@ -9,6 +9,15 @@ exports.run = async function () {
   try {
     const extension = vscode.extensions.getExtension('openai.chatgpt');
     assert.ok(extension, 'Development extension must be discovered');
+    assert.equal(extension.packageJSON.displayName, 'Jimao');
+    assert.equal(extension.packageJSON.icon, 'resources/jimao.png');
+    assert.equal(extension.packageJSON.name, 'chatgpt');
+    assert.equal(extension.packageJSON.publisher, 'openai');
+    for (const command of extension.packageJSON.contributes.commands) {
+      assert.equal(command.category, 'Jimao');
+      assert.ok(!command.title.includes('Codex'));
+    }
+    report.branding = { displayName: extension.packageJSON.displayName, icon: extension.packageJSON.icon, identityRetained: true };
     await extension.activate();
     assert.ok(extension.isActive, 'Extension must activate successfully');
     report.activated = true;

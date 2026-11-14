@@ -1452,7 +1452,7 @@ function g9(t) {
   return $Ge(t, Wn("logLevel", xWt));
 }
 function AWt() {
-  let t = iHe.window.createOutputChannel("Codex", { log: !0 }),
+  let t = iHe.window.createOutputChannel("Jimao", { log: !0 }),
     e = (o, i) => (s, a) => {
       if (!g9(o)) return;
       let l = a ?? { safe: {} },

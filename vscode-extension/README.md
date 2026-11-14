@@ -1,8 +1,10 @@
-# 可定制的 Codex VS Code 插件工程
+# Jimao VS Code 插件工程
 
 来源：官方 `openai.chatgpt@26.51111.21308`（`darwin-arm64`，预发布）VSIX。
 核实日期：2026-11-14（Asia/Shanghai）。原始包与解压产物始终保留在
 [`references/vscode-extension/`](../references/vscode-extension/README.md)，本目录保存派生工程。
+
+当前用户可见品牌为 **Jimao**，图标来自用户提供的 `kbtc.svg`。保留 `openai.chatgpt` 身份及原有数据读取方式，安装时替换同身份的官方扩展。品牌范围与约束见 [Jimao 品牌决定](../docs/decisions/002-jimao-branding.md)。
 
 这个工程用于人与 Agent 一起定制插件。可理解、可定位、可修改、可验证是主要标准：
 保留已经可读的实现；对难懂的关键路径再做进一步还原；第三方库和语言资源不逐个重写。

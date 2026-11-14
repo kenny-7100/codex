@@ -116,13 +116,13 @@ sh vscode-extension/scripts/engine.sh validate
 - 与参考包继续复用的 codex-code-mode-host 通过 2 项当前 Rust gRPC 客户端测试：会话隔离/共享进程、执行和关闭，以及 stdin EOF 退出。
 - 插件逻辑 10 项与聊天管理界面 5 项回归已通过。
 - 独立 VS Code 扩展目录安装 VSIX 成功；安装后的引擎摘要与清单一致、执行权限正常、签名检查通过，新功能标志可用，插件设置默认为开启。
-- 定制 VSIX：修改 5 个原条目（扩展清单、宿主、引擎、两个已有 Webview 模块），新增 4 个聊天管理模块，无删除；其余原条目内容相同，CRC 有效。
+- 持续恢复验收时的定制 VSIX（Jimao 品牌定制前）：修改 5 个原条目（扩展清单、宿主、引擎、两个已有 Webview 模块），新增 4 个聊天管理模块，无删除；其余原条目内容相同，CRC 有效。
 
 详细结果保存在本机 `vscode-extension/reports/engine-recovery.json`、`vscode-recovery.json`、
 `vsix-installation.json` 及对应 Rust 测试日志。
 上述验证使用本地模拟服务，没有真实断开用户网络或向模型供应商发送测试请求。
 
-## 当前本地产物
+## 持续恢复完成时的本地产物（Jimao 品牌定制前）
 
 - 引擎：`/Volumes/kenny/codex-build/artifacts/codex-persistent-recovery`，SHA-256 为 `ed3fde6d0e57b48e3887c15667c6754721ce725cbd3e8f620d899f9d6da6116c`，macOS 签名检查通过。
 - VSIX：`vscode-extension/dist/openai.chatgpt-26.51111.21308-darwin-arm64-reconstructed.vsix`，SHA-256 为 `858a8ccb5badf1e61dd0dee92239a8b7707718c8d08b7fd88366535fcd878da3`。

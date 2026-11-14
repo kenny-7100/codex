@@ -152,7 +152,7 @@ async function CWt() {
     buildFlavor: pL(),
     osName: bme(process.platform) ?? null,
     systemVersion: null,
-    appName: "Codex",
+    appName: "Jimao",
     editor: { name: df(), vscodeApiVersion: _v.version },
     appIconMedium: null,
     dockIconPreviews: null,
@@ -342,7 +342,7 @@ function yL(t) {
 }
 var bHe = "codex.chatSessionProvider",
   MWt = "codex.chatSessionObserver",
-  x9 = "Codex Agent",
+  x9 = "Jimao Agent",
   SHe = 80;
 var vL = class {
     constructor(e, r, n, o) {
@@ -905,7 +905,7 @@ var UWt = 3e3,
       { signal: r, exitCode: n } = { signal: null, exitCode: null },
       { appServerCrashContext: o, cause: i } = {},
     ) {
-      (super(`Codex process errored: ${e}`, { cause: i }),
+      (super(`Jimao process errored: ${e}`, { cause: i }),
         (this.name = "CodexProcessError"),
         (this.appServerCrashContext = o ?? null),
         (this.signal = r),
@@ -1080,15 +1080,15 @@ var IHe = "1",
           e.pid == null)
         )
           return (
-            this.broadcastFatalError(this.createProcessError("Failed to start Codex process")),
-            { success: !1, errorMessage: "Failed to spawn Codex process" }
+            this.broadcastFatalError(this.createProcessError("Failed to start Jimao process")),
+            { success: !1, errorMessage: "Failed to spawn Jimao process" }
           );
       } catch (r) {
         if (r instanceof Rv)
           return (this.broadcastFatalError(r), { success: !1, errorMessage: r.message });
         let n = r instanceof Error ? r.message : String(r);
         return (
-          this.broadcastFatalError(this.createProcessError(`Failed to start Codex process: ${n}`)),
+          this.broadcastFatalError(this.createProcessError(`Failed to start Jimao process: ${n}`)),
           { success: !1, errorMessage: n }
         );
       }
@@ -1213,7 +1213,7 @@ var IHe = "1",
             ?.onRequestDelivery?.({
               type: "failed",
               delivery: { requestId: r.requestId, method: r.method, stage: "outcome-unknown" },
-              message: "Codex app-server connection closed before responding",
+              message: "Jimao app-server connection closed before responding",
             }));
     }
     isProcessAlive(e) {
@@ -1283,7 +1283,7 @@ var IHe = "1",
             m?.onRequestDelivery?.({
               type: "failed",
               delivery: { requestId: r, method: n, stage: p },
-              message: "Codex app-server is not available",
+              message: "Jimao app-server is not available",
             }))
           : m?.onRequestDelivery?.({
               type: "outcome-unknown",
@@ -1320,7 +1320,7 @@ var IHe = "1",
             safe: {},
             sensitive: { message: e },
           }),
-          this.broadcastFatalError(this.createProcessError("Codex process is not available")),
+          this.broadcastFatalError(this.createProcessError("Jimao process is not available")),
           !1
         );
       let n;
@@ -1578,7 +1578,7 @@ function ZWt(t) {
   return { level: "error", message: t };
 }
 function XWt(t, e, r) {
-  let o = `Codex app-server process exited unexpectedly (code=${t == null ? "unknown" : process.platform === "win32" ? YWt(t) : String(t)}, signal=${e})`;
+  let o = `Jimao app-server process exited unexpectedly (code=${t == null ? "unknown" : process.platform === "win32" ? YWt(t) : String(t)}, signal=${e})`;
   return r ? `${o}. Last CLI error: ${r}` : o;
 }
 function YWt(t) {

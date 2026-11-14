@@ -211,7 +211,7 @@ var VB = class {
         c = new _b.Range(l, l);
       o.push(
         new _b.CodeLens(c, {
-          title: "Implement with Codex",
+          title: "Implement with Jimao",
           command: "chatgpt.implementTodo",
           arguments: [{ fileName: e.uri.fsPath, cwd: i, line: l.line + 1, comment: a }],
         }),
@@ -682,7 +682,7 @@ async function IZt(t) {
         }
         let oe = s.getCopyPasteableCodexCLICommand();
         (await Et.window.showInformationMessage(
-          "Use this flag when running Codex CLI to include the LSP server.",
+          "Use this flag when running Jimao CLI to include the LSP server.",
           { modal: !0, detail: oe },
           "Copy",
         )) === "Copy" && (await Et.env.clipboard.writeText(oe));

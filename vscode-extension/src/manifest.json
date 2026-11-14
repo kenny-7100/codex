@@ -2,8 +2,8 @@
   "name": "chatgpt",
   "publisher": "openai",
   "version": "26.51111.21308",
-  "displayName": "Codex – OpenAI’s coding agent",
-  "description": "Codex is a coding agent that works with you everywhere you code — included in ChatGPT Plus, Pro, Business, Edu, and Enterprise plans.",
+  "displayName": "Jimao",
+  "description": "Jimao is a coding agent that works with you everywhere you code — included in ChatGPT Plus, Pro, Business, Edu, and Enterprise plans.",
   "license": "SEE LICENSE IN LICENSE.md",
   "engines": {
     "vscode": "^1.96.2"
@@ -34,66 +34,66 @@
     "chatSessionsProvider",
     "languageModelProxy"
   ],
-  "icon": "resources/blossom.dark.png",
+  "icon": "resources/jimao.png",
   "//": "Codex command contributions in contributes.commands/keybindings and canonical setting contributions in contributes.configuration are generated and checked in for extension dev; run the matching pnpm --dir extension ...:fix script after editing them.",
   "contributes": {
     "commands": [
       {
         "command": "chatgpt.implementTodo",
-        "title": "Implement with Codex",
-        "category": "Codex",
+        "title": "Implement with Jimao",
+        "category": "Jimao",
         "enablement": "false"
       },
       {
         "command": "chatgpt.openSidebar",
-        "title": "Open Codex Sidebar",
-        "category": "Codex",
+        "title": "Open Jimao Sidebar",
+        "category": "Jimao",
         "icon": {
-          "light": "resources/blossom-black.svg",
-          "dark": "resources/blossom-white.svg"
+          "light": "resources/jimao.svg",
+          "dark": "resources/jimao.svg"
         }
       },
       {
         "command": "chatgpt.openCommandMenu",
-        "title": "Open Codex Command Menu",
-        "category": "Codex"
+        "title": "Open Jimao Command Menu",
+        "category": "Jimao"
       },
       {
         "command": "chatgpt.newCodexPanel",
-        "title": "New Codex Agent",
-        "category": "Codex",
+        "title": "New Jimao Agent",
+        "category": "Jimao",
         "icon": "$(plus)"
       },
       {
         "command": "chatgpt.addToThread",
-        "title": "Add to Codex Chat",
-        "category": "Codex"
+        "title": "Add to Jimao Chat",
+        "category": "Jimao"
       },
       {
         "command": "chatgpt.addFileToThread",
-        "title": "Add File to Codex Chat",
-        "category": "Codex"
+        "title": "Add File to Jimao Chat",
+        "category": "Jimao"
       },
       {
         "command": "chatgpt.newChat",
-        "title": "New Chat in ChatGPT Sidebar",
-        "category": "Codex"
+        "title": "New Chat in Jimao Sidebar",
+        "category": "Jimao"
       },
       {
         "command": "chatgpt.showLspMcpCliArgs",
-        "title": "Copy Codex CLI args for LSP MCP",
-        "category": "Codex"
+        "title": "Copy Jimao CLI args for LSP MCP",
+        "category": "Jimao"
       },
       {
         "command": "chatgpt.dumpNuxState",
         "title": "Debug: print NUX state to console",
-        "category": "Codex",
+        "category": "Jimao",
         "enablement": "chatgpt.sidebarView.visible"
       },
       {
         "command": "chatgpt.resetNuxState",
         "title": "Debug: reset NUX state",
-        "category": "Codex",
+        "category": "Jimao",
         "enablement": "chatgpt.sidebarView.visible"
       }
     ],
@@ -107,10 +107,10 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "Codex Settings",
+      "title": "Jimao Settings",
       "properties": {
         "chatgpt.commentCodeLensEnabled": {
-          "description": "Enable CodeLens above TODO comments to implement with Codex.",
+          "description": "Enable CodeLens above TODO comments to implement with Jimao.",
           "type": "boolean",
           "default": true
         },
@@ -121,7 +121,7 @@
           "scope": "application"
         },
         "chatgpt.cliExecutable": {
-          "description": "DEVELOPMENT ONLY: Path to the Codex CLI executable. You do NOT need to set this unless you are actively developing the Codex CLI. If set this manually, parts of the extension may not work as expected.",
+          "description": "DEVELOPMENT ONLY: Path to the Jimao CLI executable. You do NOT need to set this unless you are actively developing the Jimao CLI. If set this manually, parts of the extension may not work as expected.",
           "type": [
             "string",
             "null"
@@ -131,7 +131,7 @@
           "restricted": true
         },
         "chatgpt.openOnStartup": {
-          "description": "Focus the Codex sidebar when the extension finishes starting up.",
+          "description": "Focus the Jimao sidebar when the extension finishes starting up.",
           "type": "boolean",
           "default": false
         },
@@ -146,7 +146,7 @@
           "default": "queue"
         },
         "chatgpt.composerEnterBehavior": {
-          "description": "Enter behavior for the Codex composer.",
+          "description": "Enter behavior for the Jimao composer.",
           "type": "string",
           "enum": [
             "enter",
@@ -165,7 +165,7 @@
           "default": "inline"
         },
         "chatgpt.localeOverride": {
-          "description": "Preferred language for the Codex UI. Leave empty to auto detect.",
+          "description": "Preferred language for the Jimao UI. Leave empty to auto detect.",
           "type": [
             "string",
             "null"
@@ -174,7 +174,7 @@
           "scope": "application"
         },
         "chatgpt.runCodexInWindowsSubsystemForLinux": {
-          "description": "Deprecated. To run Codex in WSL, reopen your folder using the Microsoft WSL extension. Turn this setting off to run Codex on Windows. Changing it reloads the window.",
+          "description": "Deprecated. To run Jimao in WSL, reopen your folder using the Microsoft WSL extension. Turn this setting off to run Jimao on Windows. Changing it reloads the window.",
           "type": "boolean",
           "default": false
         }
@@ -184,16 +184,16 @@
       "activitybar": [
         {
           "id": "codexViewContainer",
-          "title": "Codex",
-          "icon": "resources/blossom-white.svg",
+          "title": "Jimao",
+          "icon": "resources/jimao.svg",
           "when": "chatgpt.doesNotSupportSecondarySidebar"
         }
       ],
       "secondarySidebar": [
         {
           "id": "codexSecondaryViewContainer",
-          "title": "Codex",
-          "icon": "resources/blossom-white.svg",
+          "title": "Jimao",
+          "icon": "resources/jimao.svg",
           "when": "!chatgpt.doesNotSupportSecondarySidebar"
         }
       ]
@@ -203,7 +203,7 @@
         {
           "id": "chatgpt.sidebarView",
           "type": "webview",
-          "name": "Codex",
+          "name": "Jimao",
           "when": "chatgpt.doesNotSupportSecondarySidebar"
         }
       ],
@@ -211,7 +211,7 @@
         {
           "id": "chatgpt.sidebarSecondaryView",
           "type": "webview",
-          "name": "Codex",
+          "name": "Jimao",
           "when": "!chatgpt.doesNotSupportSecondarySidebar"
         }
       ]
@@ -219,7 +219,7 @@
     "customEditors": [
       {
         "viewType": "chatgpt.conversationEditor",
-        "displayName": "Codex Chat",
+        "displayName": "Jimao Chat",
         "priority": "default",
         "selector": [
           {
@@ -272,9 +272,9 @@
     "chatSessions": [
       {
         "type": "openai-codex",
-        "name": "Codex",
-        "displayName": "OpenAI Codex",
-        "description": "OpenAI Codex integration for VS Code"
+        "name": "Jimao",
+        "displayName": "OpenAI Jimao",
+        "description": "OpenAI Jimao integration for VS Code"
       }
     ],
     "grammars": [
@@ -288,7 +288,7 @@
       {
         "id": "codex-rules",
         "aliases": [
-          "Codex Rules"
+          "Jimao Rules"
         ],
         "extensions": [
           ".rules"

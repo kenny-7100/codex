@@ -2,8 +2,8 @@
 	<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
 		<Metadata>
 			<Identity Language="en-US" Id="chatgpt" Version="26.51111.21308" Publisher="openai" TargetPlatform="darwin-arm64"/>
-			<DisplayName>Codex – OpenAI’s coding agent</DisplayName>
-			<Description xml:space="preserve">Codex is a coding agent that works with you everywhere you code — included in ChatGPT Plus, Pro, Business, Edu, and Enterprise plans.</Description>
+			<DisplayName>Jimao</DisplayName>
+			<Description xml:space="preserve">Jimao is a coding agent that works with you everywhere you code — included in ChatGPT Plus, Pro, Business, Edu, and Enterprise plans.</Description>
 			<Tags>codex,openai,chatgpt,ai,agent,coding,code,chat,keybindings,codex-rules,CodexRules,__ext_rules</Tags>
 			<Categories>AI,Chat</Categories>
 			<GalleryFlags>Public</GalleryFlags>
@@ -30,7 +30,7 @@
 				
 			</Properties>
 			<License>extension/LICENSE.md</License>
-			<Icon>extension/resources/blossom.dark.png</Icon>
+			<Icon>extension/resources/jimao.png</Icon>
 		</Metadata>
 		<Installation>
 			<InstallationTarget Id="Microsoft.VisualStudio.Code"/>
@@ -40,6 +40,6 @@
 			<Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
 			<Asset Type="Microsoft.VisualStudio.Services.Content.Details" Path="extension/readme.md" Addressable="true" />
 <Asset Type="Microsoft.VisualStudio.Services.Content.License" Path="extension/LICENSE.md" Addressable="true" />
-<Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/resources/blossom.dark.png" Addressable="true" />
+<Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/resources/jimao.png" Addressable="true" />
 		</Assets>
 	</PackageManifest>

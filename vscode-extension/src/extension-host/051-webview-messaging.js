@@ -1005,7 +1005,7 @@ var q4t = d.object({
     sequence: d.number().int(),
   }),
   f4e = 30,
-  y4e = "Codex",
+  y4e = "Jimao",
   yR = "CodexWebviewProvider.webview",
   vR = class {
     currentPanel;
@@ -1354,8 +1354,8 @@ var q4t = d.object({
         }
       ((r.title = h4e(s)),
         (r.iconPath = {
-          light: ze.Uri.joinPath(this.extensionUri, "resources", "blossom-black.svg"),
-          dark: ze.Uri.joinPath(this.extensionUri, "resources", "blossom-white.svg"),
+          light: ze.Uri.joinPath(this.extensionUri, "resources", "jimao.svg"),
+          dark: ze.Uri.joinPath(this.extensionUri, "resources", "jimao.svg"),
         }),
         i != null &&
           this.chatSessionItemProvider?.registerPendingConversation(
@@ -1553,14 +1553,14 @@ var q4t = d.object({
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none';" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Codex could not start</title>
+    <title>Jimao could not start</title>
   </head>
   <body>
-    <h1>Codex could not start</h1>
+    <h1>Jimao could not start</h1>
     <p>The extension could not start its user interface.</p>
   </body>
 </html>`),
-          ze.window.showErrorMessage("Codex could not start its user interface."));
+          ze.window.showErrorMessage("Jimao could not start its user interface."));
       });
       (this.registerClientCoordinationForWebview(e, n, s),
         this.workerBusMessageHandler.registerWebview(e));
@@ -2266,7 +2266,7 @@ var q4t = d.object({
       };
     }
     async showDiff(e, r) {
-      (this.diffPanel == null && (this.diffPanel = new vR("Codex Diff")),
+      (this.diffPanel == null && (this.diffPanel = new vR("Jimao Diff")),
         this.showPanel(
           "/diff",
           {
@@ -2279,11 +2279,11 @@ var q4t = d.object({
         ));
     }
     async showPlanSummary(e, r) {
-      (this.planSummaryPanel == null && (this.planSummaryPanel = new vR("Codex Plan")),
+      (this.planSummaryPanel == null && (this.planSummaryPanel = new vR("Jimao Plan")),
         this.showPanel("/plan-summary", e, this.planSummaryPanel, r));
     }
     async showSettings(e, r) {
-      (this.settingsPanel == null && (this.settingsPanel = new vR("Codex Settings")),
+      (this.settingsPanel == null && (this.settingsPanel = new vR("Jimao Settings")),
         this.showPanel(`/settings/${e.section}`, e, this.settingsPanel, r));
     }
     async showPanel(e, r, n, o) {

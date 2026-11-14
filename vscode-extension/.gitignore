@@ -6,7 +6,7 @@ reports/
 # Reproducible, large decoded Webview tree. Keep edits through export-patches.
 src/webview/
 # Original binary/static resources are materialized from the reference VSIX.
-resources/
+/resources/
 !.vscode/
 !.vscode/*.json
 
