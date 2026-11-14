@@ -1,0 +1,11 @@
+node_modules/
+.cache/
+build/
+dist/
+reports/
+# Reproducible, large decoded Webview tree. Keep edits through export-patches.
+src/webview/
+# Original binary/static resources are materialized from the reference VSIX.
+resources/
+!.vscode/
+!.vscode/*.json

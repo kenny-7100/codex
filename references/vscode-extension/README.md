@@ -1,6 +1,8 @@
 # Codex VS Code 插件：本地对照阅读资料
 
 本目录用于结合官方 VS Code 插件发布包和当前 Codex Rust 仓库学习实现。
+可编辑派生工程位于根目录的 [vscode-extension](../../vscode-extension/README.md)，
+原始包和本目录解压文件继续保留原样。
 
 ## 下载记录
 

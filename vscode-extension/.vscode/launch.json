@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug reconstructed Codex extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/build/extension",
+        "--enable-proposed-api",
+        "openai.chatgpt",
+        "--user-data-dir=${workspaceFolder}/.cache/vscode-debug/user-data",
+        "--extensions-dir=${workspaceFolder}/.cache/vscode-debug/extensions"
+      ],
+      "outFiles": ["${workspaceFolder}/build/extension/out/**/*.js"],
+      "preLaunchTask": "build extension with source maps"
+    }
+  ]
+}

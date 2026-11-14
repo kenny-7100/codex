@@ -1,0 +1,6 @@
+# Preserve original package metadata bytes, including intentional blank-line tabs.
+src/vsixmanifest.xml -text -whitespace
+src/content-types.xml -text
+src/manifest.json -text
+recovery-manifest.json linguist-generated
+docs/host-symbols.json linguist-generated

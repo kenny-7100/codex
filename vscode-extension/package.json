@@ -1,0 +1,27 @@
+{
+  "name": "codex-vscode-reconstructed",
+  "version": "26.51111.21308",
+  "private": true,
+  "type": "module",
+  "description": "Editable reconstruction of the official openai.chatgpt VSIX, with provenance and differential validation",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "bootstrap": "python3 scripts/reference.py",
+    "recover": "node --max-old-space-size=8192 scripts/recover.mjs",
+    "build": "node --max-old-space-size=8192 scripts/build.mjs",
+    "package": "python3 scripts/archive.py pack",
+    "verify": "python3 scripts/archive.py verify",
+    "test": "node --test test/*.test.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "check-imports": "node scripts/check-imports.mjs",
+    "test:customization": "node scripts/customization-test.mjs"
+  },
+  "devDependencies": {
+    "@babel/parser": "7.28.5",
+    "@jridgewell/gen-mapping": "0.3.13",
+    "es-module-lexer": "1.7.0",
+    "prettier": "3.6.2"
+  }
+}
