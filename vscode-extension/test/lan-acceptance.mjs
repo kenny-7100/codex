@@ -502,6 +502,17 @@ try {
   }
   assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
   await mobilePage.screenshot({ path: "reports/lan-mobile-fixed-viewport.png" });
+  await mobilePage.frameLocator("#view").getByText("LAN renamed", { exact: true }).first().click();
+  const newChatButton = mobilePage.frameLocator("#view").getByRole("button", { name: /New chat|新建聊天|新聊天/ }).first();
+  const originalMobileRoute = mobilePage.frames().find((f) => f.url().includes("/frame/"));
+  const originalMobilePath = await originalMobileRoute.evaluate((id) => sessionStorage.getItem("jimao-route-" + id), readyB.windowId);
+  await newChatButton.tap();
+  await originalMobileRoute.waitForFunction(({ id, oldPath }) => sessionStorage.getItem("jimao-route-" + id) !== oldPath, { id: readyB.windowId, oldPath: originalMobilePath });
+  await mobileInput.waitFor();
+  await mobileInput.fill("New chat created from mobile");
+  await mobilePage.frameLocator("#view").getByRole("button", { name: "Send", exact: true }).tap();
+  await mobilePage.frameLocator("#view").getByText("LAN acceptance response.", { exact: true }).first().waitFor();
+  assert(await mobilePage.frameLocator("#view").getByText("New chat created from mobile", { exact: true }).first().isVisible());
   const mobileFrame = mobilePage.frames().find((f) => f.url().includes("/frame/"));
   await mobileInput.blur();
   await mobileFrame.evaluate(() => window.dispatchEvent(new CustomEvent("open-recent-tasks-menu")));
@@ -564,6 +575,10 @@ try {
   console.error("ACCEPTANCE", error.message, "REQUESTS", requests.length);
   if (browser) {
     const p = browser.contexts()[0]?.pages()[0];
+    for (const extra of browser.contexts().flatMap((c) => c.pages()).filter((p) => p !== browser.contexts()[0]?.pages()[0])) {
+      console.log("EXTRA FAIL", await extra.frameLocator("#view").locator("body").innerText().catch(() => ""));
+      await extra.screenshot({ path: "reports/lan-mobile-new-chat-failed.png" });
+    }
     console.log(
       "FAIL TEXT",
       await p

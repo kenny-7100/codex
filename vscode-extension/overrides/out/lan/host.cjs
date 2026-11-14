@@ -140,6 +140,11 @@ function register(vscode, context, controller) {
         });
       },
       async receive(message) {
+        // Desktop commands target the sidebar; reply to the browser that clicked.
+        if (message.type === "open-vscode-command" && message.command === "chatgpt.newChat") {
+          await view.postMessage({ type: "new-chat" });
+          return;
+        }
         const routes = {
           "show-settings": "/settings/" + (message.section || "general"),
           "show-diff": "/diff",
