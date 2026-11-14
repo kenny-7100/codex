@@ -9,7 +9,7 @@ test("compact search has only name, dates and tags; list owns sorting; timestamp
 }) => {
   const panel = page.getByRole("region", { name: "聊天搜索", exact: true });
   await expect(panel).toBeVisible();
-  expect((await panel.boundingBox()).height).toBeGreaterThan(500);
+  expect((await panel.boundingBox()).height).toBeLessThan(600);
   await expect(page.getByLabel("搜索范围")).toHaveCount(0);
   await expect(page.getByLabel("项目 / 工作目录")).toHaveCount(0);
   await expect(
@@ -166,6 +166,8 @@ test("ten-row pages preserve global search and reset after filters, sorting and 
   const rows = page.locator("[data-result-id]");
   const previous = page.getByRole("button", { name: "上一页", exact: true });
   const next = page.getByRole("button", { name: "下一页", exact: true });
+  const first = page.getByRole("button", { name: "首页", exact: true });
+  const last = page.getByRole("button", { name: "尾页", exact: true });
   const info = page.locator(".cm-page-info");
   await expect(rows).toHaveCount(10);
   await expect(info).toHaveText("第 1 / 14 页 · 每页 10 条");
@@ -175,9 +177,27 @@ test("ten-row pages preserve global search and reset after filters, sorting and 
   await expect(rows).toHaveCount(10);
   await previous.click();
   await expect(rows.first()).toHaveAttribute("data-result-id", "fixture-0");
-  for (let i = 0; i < 13; i++) await next.click();
+  await expect(first).toBeDisabled();
+  const fullHeight = (
+    await page
+      .getByRole("region", { name: "聊天搜索", exact: true })
+      .boundingBox()
+  ).height;
+  await last.click();
   await expect(rows).toHaveCount(4);
   await expect(info).toHaveText("第 14 / 14 页 · 每页 10 条");
+  await expect(last).toBeDisabled();
+  expect(
+    (
+      await page
+        .getByRole("region", { name: "聊天搜索", exact: true })
+        .boundingBox()
+    ).height,
+  ).toBeLessThan(fullHeight - 100);
+  await first.click();
+  await expect(rows.first()).toHaveAttribute("data-result-id", "fixture-0");
+  await expect(first).toBeDisabled();
+  await last.click();
   await expect(next).toBeDisabled();
   await page.getByLabel("聊天名称", { exact: true }).fill('"历史聊天 120"');
   await expect(rows).toHaveCount(1);
@@ -187,6 +207,8 @@ test("ten-row pages preserve global search and reset after filters, sorting and 
   await expect(next).toBeDisabled();
   await page.getByLabel("聊天名称", { exact: true }).fill("没有这个聊天");
   await expect(rows).toHaveCount(0);
+  await expect(first).toBeDisabled();
+  await expect(last).toBeDisabled();
   await expect(previous).toBeDisabled();
   await expect(next).toBeDisabled();
   await page.getByRole("button", { name: "清空筛选" }).click();
