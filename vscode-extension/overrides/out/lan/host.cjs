@@ -213,6 +213,8 @@ function register(vscode, context, controller) {
       .replace("__WINDOW_ID__", JSON.stringify(id));
     // Browser-facing URLs must be relative: localhost refers to the phone itself.
     let html = view.html.replaceAll(endpoint, "");
+    html = html.replace(/<meta\b[^>]*name=["']viewport["'][^>]*>/gi, "");
+    html = html.replace("<head>", '<head><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">');
     html = html.replace("<head>", "<head><script>" + bridge + "</script>");
     // Existing CSP is restricted to VS Code resource schemes; use same-origin HTTP resources.
     html = html.replace(

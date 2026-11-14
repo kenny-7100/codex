@@ -462,6 +462,34 @@ try {
     .getByText("LAN acceptance response.", { exact: true })
     .first()
     .waitFor({ timeout: 30000 });
+  const mobile = await browser.newContext({
+    viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+  });
+  const mobilePage = await mobile.newPage();
+  await mobilePage.goto(browserAddress);
+  await mobilePage.locator("select").selectOption(readyB.windowId);
+  const mobileInput = mobilePage.frameLocator("#view").getByRole("textbox");
+  await mobileInput.waitFor();
+  await mobileInput.tap();
+  assert(await mobileInput.evaluate((el) => parseFloat(getComputedStyle(el).fontSize) >= 16));
+  for (const surface of [mobilePage, mobilePage.frames().find((f) => f.url().includes("/frame/"))]) {
+    assert(await surface.evaluate(() => {
+      const viewport = document.querySelector('meta[name="viewport"]')?.content || "";
+      const gesture = new Event("gesturestart", { bubbles: true, cancelable: true });
+      document.dispatchEvent(gesture);
+      const touch = new Event("touchmove", { bubbles: true, cancelable: true });
+      Object.defineProperty(touch, "touches", { value: [{}, {}] });
+      document.dispatchEvent(touch);
+      const doubleTap = new MouseEvent("dblclick", { bubbles: true, cancelable: true });
+      document.dispatchEvent(doubleTap);
+      return viewport.includes("maximum-scale=1") && viewport.includes("user-scalable=no") &&
+        getComputedStyle(document.documentElement).touchAction === "pan-x pan-y" &&
+        gesture.defaultPrevented && touch.defaultPrevented && doubleTap.defaultPrevented;
+    }));
+  }
+  assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
+  await mobilePage.screenshot({ path: "reports/lan-mobile-fixed-viewport.png" });
+  await mobile.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "reports/lan-mobile.png" });
   assert(
@@ -488,7 +516,7 @@ try {
         "two real VS Code hosts",
         "window switch and drafts",
         "owner close preserves second window",
-        "mobile layout",
+        "mobile layout and fixed viewport gestures/input focus",
       ],
       requests: requests.length,
     }),

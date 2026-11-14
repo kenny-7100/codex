@@ -3,6 +3,16 @@
   const id = __CLIENT_ID__,
     windowId = __WINDOW_ID__;
   window.__jimaoLan = true;
+    // Keep scrolling, but suppress browser zoom gestures on mobile.
+    for (const type of ["gesturestart", "gesturechange", "gestureend"])
+      document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+    document.addEventListener("touchmove", (e) => {
+      if (e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+    document.addEventListener("dblclick", (e) => {
+      if (matchMedia("(pointer: coarse)").matches) e.preventDefault();
+    });
+
   const routeKey = "jimao-route-" + windowId;
   const route = sessionStorage.getItem(routeKey);
   if (route && !document.querySelector('meta[name="initial-route"]')) {
@@ -209,6 +219,6 @@
   document.documentElement.dataset.theme = "dark";
   const style = document.createElement("style");
   style.textContent =
-    ":root{color-scheme:dark;--vscode-foreground:#ddd;--vscode-editor-background:#181818;--vscode-sideBar-background:#181818;--vscode-input-background:#242424;--vscode-input-foreground:#ddd;--vscode-focusBorder:#409cff;--vscode-font-family:system-ui;--vscode-font-size:13px}body{background:#181818;color:#ddd}";
+    ":root{color-scheme:dark;--vscode-foreground:#ddd;--vscode-editor-background:#181818;--vscode-sideBar-background:#181818;--vscode-input-background:#242424;--vscode-input-foreground:#ddd;--vscode-focusBorder:#409cff;--vscode-font-family:system-ui;--vscode-font-size:13px}html,body{touch-action:pan-x pan-y}body{background:#181818;color:#ddd}@media(pointer:coarse){input,textarea,select,[contenteditable=true],[role=textbox]{font-size:16px!important}}";
   document.head.append(style);
 })();
