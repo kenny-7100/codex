@@ -154,12 +154,19 @@ try {
   assert(dimensions.sortInList);
   assert.equal(dimensions.styleCount, 1);
   assert.equal(dimensions.overflow, false);
+  const inline = await evaluate(`const row=d.querySelector('[data-chat-id="${threadId}"]');const title=row.querySelector('.cm-title-text').getBoundingClientRect();const tag=row.querySelector('.cm-tag').getBoundingClientRect();return {right:tag.x>=title.right-1,sameLine:Math.abs((tag.y+tag.height/2)-(title.y+title.height/2))<3};`);
+  assert(inline.right && inline.sameLine, 'Tags must remain to the right of the title');
+  await evaluate(`d.querySelector('[data-chat-id="${threadId}"] .cm-tag').click();`);
+  await until(`return d.querySelector('.cm-tags-filter input')?.value==='验收';`);
   const browser = await chromium.connectOverCDP("http://127.0.0.1:9338");
   await browser
     .contexts()[0]
     .pages()[0]
     .screenshot({ path: "reports/vscode-chat-management.png" });
   await browser.close();
+  await evaluate(`d.querySelector('[aria-label="关闭搜索面板"]').click();`);
+  await until(`return !d.querySelector('[aria-label="聊天搜索"]');`);
+  await until(`window.dispatchEvent(new CustomEvent('open-recent-tasks-menu'));return !!d.querySelector('[aria-label="聊天搜索"]');`);
   const report = {
     passed: true,
     checks: [
@@ -170,6 +177,8 @@ try {
       "name filtering",
       "compact panel dimensions",
       "sorting in list toolbar",
+      "tags inline with title and clickable without navigation",
+      "explicit close button and reopening",
     ],
     dimensions,
   };

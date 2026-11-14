@@ -24,6 +24,7 @@ configureTransport((message) => {
 const fixture = await (await fetch("/fixtures")).json();
 function App() {
   const state = useChatManager(React);
+  const [open, setOpen] = React.useState(true);
   const [names, setNames] = React.useState({});
   const rows = fixture.slice(0, 4).map((r) => normalizeThread(r));
   function renderRow(row) {
@@ -48,19 +49,37 @@ function App() {
           return true;
         },
       },
-      h(
-        "button",
-        { className: "fixture-row", onClick: () => {} },
-        h("span", null, title),
-        h(ui.Timestamp, { value: row.updatedAt }),
-      ),
+      (tags) =>
+        h(
+          "div",
+          {
+            className: "fixture-row",
+            role: "button",
+            tabIndex: 0,
+            onClick: () => {},
+          },
+          h(
+            "span",
+            { className: "cm-inline-title" },
+            h("span", { className: "cm-title-text" }, title),
+            tags,
+          ),
+          h(ui.Timestamp, { value: row.updatedAt }),
+        ),
     );
   }
   return h(
     "main",
     null,
     h("h2", null, "Codex · 聊天管理"),
-    h(ui.SearchPanel, { rows, renderRow, autoFocus: true }),
+    open
+      ? h(ui.SearchPanel, {
+          rows,
+          renderRow,
+          autoFocus: true,
+          onClose: () => setOpen(false),
+        })
+      : h("button", { onClick: () => setOpen(true) }, "打开聊天搜索"),
   );
 }
 createRoot(document.getElementById("root")).render(h(App));

@@ -117,3 +117,45 @@ test("mobile and desktop have one panel, no horizontal overflow and useful resul
     fullPage: true,
   });
 });
+
+test("tags stay beside titles and the top right close button closes and reopens the panel", async ({
+  page,
+}) => {
+  const row = page.locator('[data-chat-id="fixture-0"]');
+  await row.getByRole("button", { name: "编辑标签" }).click();
+  await row.getByLabel("标签（用逗号分隔）").fill("test,开发");
+  await row.getByRole("button", { name: "保存", exact: true }).click();
+  for (const width of [960, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const title = await row.locator(".cm-title-text").boundingBox();
+    const tag = await row.locator(".cm-tag").first().boundingBox();
+    expect(tag.x).toBeGreaterThanOrEqual(title.x + title.width - 1);
+    expect(
+      Math.abs(tag.y + tag.height / 2 - (title.y + title.height / 2)),
+    ).toBeLessThan(3);
+    const panel = await page
+      .getByRole("region", { name: "聊天搜索", exact: true })
+      .boundingBox();
+    const close = page.getByRole("button", {
+      name: "关闭搜索面板",
+      exact: true,
+    });
+    const bounds = await close.boundingBox();
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(panel.x + panel.width);
+    expect(bounds.y - panel.y).toBeLessThan(20);
+    await page.screenshot({
+      path: `reports/chat-manager-inline-tags-${width}.png`,
+      fullPage: true,
+    });
+  }
+  await page.getByRole("button", { name: "关闭搜索面板", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "聊天搜索", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "打开聊天搜索", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "聊天搜索", exact: true }),
+  ).toBeVisible();
+  await row.locator(".cm-tag").first().click();
+  await expect(page.getByLabel("标签", { exact: true })).toHaveValue("test");
+});

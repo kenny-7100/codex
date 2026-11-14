@@ -115,6 +115,31 @@ export function getChatManagerUI(React) {
       setDraft(kind === "name" ? title : ownTags.join(", "));
       setEditing(kind);
     };
+    const tagBadges =
+      ownTags.length > 0 &&
+      h(
+        "span",
+        { className: "cm-row-tags", onPointerDown: stop, onKeyDown: stop },
+        ownTags.map((tag) =>
+          button(
+            tag,
+            (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              requestedTag = tag;
+              window.dispatchEvent(new CustomEvent("open-recent-tasks-menu"));
+              window.dispatchEvent(
+                new CustomEvent("codexx-filter-tag", { detail: tag }),
+              );
+            },
+            {
+              key: tag,
+              className: "cm-tag",
+              title: `筛选标签：${tag}`,
+            },
+          ),
+        ),
+      );
     return h(
       "div",
       { "className": "cm-chat-row", "data-chat-id": threadId, "onClick": stop },
@@ -162,7 +187,11 @@ export function getChatManagerUI(React) {
         : h(
             React.Fragment,
             null,
-            h("div", { className: "cm-original-row" }, children),
+            h(
+              "div",
+              { className: "cm-original-row" },
+              typeof children === "function" ? children(tagBadges) : children,
+            ),
             h(
               "div",
               { className: "cm-row-actions" },
@@ -177,30 +206,6 @@ export function getChatManagerUI(React) {
                 "disabled": !state.ready,
               }),
             ),
-            ownTags.length > 0 &&
-              h(
-                "div",
-                { className: "cm-row-tags" },
-                ownTags.map((tag) =>
-                  button(
-                    tag,
-                    () => {
-                      requestedTag = tag;
-                      window.dispatchEvent(
-                        new CustomEvent("open-recent-tasks-menu"),
-                      );
-                      window.dispatchEvent(
-                        new CustomEvent("codexx-filter-tag", { detail: tag }),
-                      );
-                    },
-                    {
-                      key: tag,
-                      className: "cm-tag",
-                      title: `筛选标签：${tag}`,
-                    },
-                  ),
-                ),
-              ),
           ),
       (error || hydrationError) &&
         h(
@@ -364,15 +369,24 @@ export function getChatManagerUI(React) {
         },
       },
       h(
-        "label",
-        { className: "cm-search-input" },
-        h("span", { className: "cm-sr-only" }, "聊天名称"),
-        h("input", {
-          type: "search",
-          placeholder: "按聊天名称搜索",
-          value: filters.query,
-          autoFocus,
-          onChange: (e) => set("query", e.target.value),
+        "div",
+        { className: "cm-search-header" },
+        h(
+          "label",
+          { className: "cm-search-input" },
+          h("span", { className: "cm-sr-only" }, "聊天名称"),
+          h("input", {
+            type: "search",
+            placeholder: "按聊天名称搜索",
+            value: filters.query,
+            autoFocus,
+            onChange: (e) => set("query", e.target.value),
+          }),
+        ),
+        button("×", () => onClose?.(), {
+          "className": "cm-close",
+          "aria-label": "关闭搜索面板",
+          "title": "关闭搜索面板",
         }),
       ),
       h(
@@ -568,8 +582,8 @@ export function getChatManagerUI(React) {
 }
 const CSS = `
 .cm-search-panel{box-sizing:border-box;display:flex;flex-direction:column;gap:9px;width:calc(var(--radix-popper-available-width,100vw) - var(--padding-panel,24px));max-width:1040px;height:min(760px,80vh);max-height:var(--radix-popper-available-height,85vh);min-height:0;padding:12px;color:var(--vscode-foreground,#ddd);font-size:12px;overflow:hidden}
-.cm-search-panel *,.cm-chat-row *{box-sizing:border-box}.cm-toolbar,.cm-query-actions,.cm-saved-queries{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.cm-search-input{flex:0 0 auto;min-width:0;width:100%}.cm-search-input input{width:100%;font-size:13px!important}.cm-filters{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:10px;flex-shrink:0}.cm-tags-filter{display:flex;align-items:end;gap:6px;min-width:0}.cm-tags-filter .cm-field{flex:1}.cm-list-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--vscode-widget-border,#333)}.cm-list-toolbar .cm-result-status{flex:1}.cm-list-toolbar select{max-width:120px}.cm-field{display:flex;flex-direction:column;gap:4px;min-width:0;color:var(--vscode-descriptionForeground,#aaa)}
+.cm-search-panel *,.cm-chat-row *{box-sizing:border-box}.cm-toolbar,.cm-query-actions,.cm-saved-queries{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.cm-search-header{display:flex;align-items:center;gap:8px;flex-shrink:0}.cm-search-input{flex:1;min-width:0}.cm-search-panel .cm-close{flex-shrink:0;width:32px;height:32px;padding:0;font-size:22px;line-height:1;background:transparent;border-color:transparent}.cm-search-panel .cm-close:hover{background:var(--vscode-toolbar-hoverBackground,#444)}.cm-search-input input{width:100%;font-size:13px!important}.cm-filters{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:10px;flex-shrink:0}.cm-tags-filter{display:flex;align-items:end;gap:6px;min-width:0}.cm-tags-filter .cm-field{flex:1}.cm-list-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--vscode-widget-border,#333)}.cm-list-toolbar .cm-result-status{flex:1}.cm-list-toolbar select{max-width:120px}.cm-field{display:flex;flex-direction:column;gap:4px;min-width:0;color:var(--vscode-descriptionForeground,#aaa)}
 .cm-search-panel input:not([type=checkbox]),.cm-search-panel select,.cm-row-editor input{min-height:28px;min-width:0;border:1px solid var(--vscode-input-border,#444);border-radius:5px;background:var(--vscode-input-background,#242424);color:var(--vscode-input-foreground,#ddd);padding:5px 7px;font:inherit}.cm-search-panel input:focus,.cm-search-panel select:focus,.cm-row-editor input:focus{outline:1px solid var(--vscode-focusBorder,#409cff)}.cm-search-panel button,.cm-row-editor button,.cm-row-actions button{cursor:pointer;border:1px solid var(--vscode-button-border,#444);border-radius:5px;padding:4px 8px;background:var(--vscode-button-secondaryBackground,#333);color:var(--vscode-button-secondaryForeground,#ddd);font:inherit;white-space:nowrap}.cm-search-panel button:hover,.cm-row-editor button:hover{filter:brightness(1.15)}.cm-search-panel button:disabled,.cm-chat-row button:disabled{opacity:.4;cursor:default}.cm-search-panel .cm-primary{background:var(--vscode-button-background,#176ba8);color:var(--vscode-button-foreground,#fff)}
-.cm-checkbox{display:flex;align-items:center;gap:5px}.cm-saved-queries{padding:7px 0;border-top:1px solid var(--vscode-widget-border,#333);border-bottom:1px solid var(--vscode-widget-border,#333)}.cm-saved-queries label{display:flex;align-items:center;gap:6px}.cm-saved-queries>input{flex:1;min-width:120px!important}.cm-result-status{color:var(--vscode-descriptionForeground,#aaa);font-size:11px}.cm-results{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.cm-empty{padding:24px 8px;text-align:center;color:var(--vscode-descriptionForeground,#aaa)}.cm-error{color:var(--vscode-errorForeground,#f88);font-size:12px;white-space:normal;padding:5px;grid-column:1/-1}.cm-timestamp{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:11px}.cm-chat-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-width:0;width:100%;position:relative}.cm-original-row{min-width:0}.cm-row-actions{display:flex;gap:2px;margin-left:3px;opacity:.55}.cm-chat-row:hover .cm-row-actions,.cm-chat-row:focus-within .cm-row-actions{opacity:1}.cm-row-actions button{padding:2px 5px;border-color:transparent;background:transparent;font-size:13px}.cm-row-actions button:hover{background:var(--vscode-toolbar-hoverBackground,#444)}.cm-row-tags{grid-column:1/-1;display:flex;gap:4px;flex-wrap:wrap;padding:0 7px 4px}.cm-tag{font:inherit!important;font-size:10px!important;border:1px solid var(--vscode-badge-background,#445)!important;color:var(--vscode-badge-foreground,#ddd)!important;background:var(--vscode-badge-background,#334)!important;border-radius:9px!important;padding:1px 6px!important;max-width:100%;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.cm-row-editor{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:end;gap:6px;padding:6px}.cm-row-editor label{flex:1;min-width:120px;font-size:11px;display:flex;flex-direction:column;gap:4px}.cm-row-editor-actions{display:flex;gap:4px}.cm-row-editor small{flex-basis:100%;color:var(--vscode-descriptionForeground,#aaa)}.cm-tag-manager{display:flex;flex-wrap:wrap;align-items:center;gap:7px;max-height:24vh;overflow:auto;padding:8px;background:var(--vscode-editor-background,#222);border:1px solid var(--vscode-widget-border,#444);border-radius:5px;flex-shrink:0}.cm-tag-manager small,.cm-tag-manager strong{flex-basis:100%}.cm-tag-manager label{display:flex;gap:4px;align-items:center}.cm-confirm{flex-basis:100%;display:flex;gap:6px;align-items:center}.cm-sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0)}
+.cm-checkbox{display:flex;align-items:center;gap:5px}.cm-saved-queries{padding:7px 0;border-top:1px solid var(--vscode-widget-border,#333);border-bottom:1px solid var(--vscode-widget-border,#333)}.cm-saved-queries label{display:flex;align-items:center;gap:6px}.cm-saved-queries>input{flex:1;min-width:120px!important}.cm-result-status{color:var(--vscode-descriptionForeground,#aaa);font-size:11px}.cm-results{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.cm-empty{padding:24px 8px;text-align:center;color:var(--vscode-descriptionForeground,#aaa)}.cm-error{color:var(--vscode-errorForeground,#f88);font-size:12px;white-space:normal;padding:5px;grid-column:1/-1}.cm-timestamp{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:11px}.cm-chat-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-width:0;width:100%;position:relative}.cm-original-row{min-width:0}.cm-row-actions{display:flex;gap:2px;margin-left:3px;opacity:.55}.cm-chat-row:hover .cm-row-actions,.cm-chat-row:focus-within .cm-row-actions{opacity:1}.cm-row-actions button{padding:2px 5px;border-color:transparent;background:transparent;font-size:13px}.cm-row-actions button:hover{background:var(--vscode-toolbar-hoverBackground,#444)}.cm-inline-title{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}.cm-title-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-row-tags{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;max-width:45%;overflow-x:auto;white-space:nowrap;scrollbar-width:none}.cm-row-tags .cm-tag{flex-shrink:0}.cm-tag{font:inherit!important;font-size:10px!important;border:1px solid var(--vscode-badge-background,#445)!important;color:var(--vscode-badge-foreground,#ddd)!important;background:var(--vscode-badge-background,#334)!important;border-radius:9px!important;padding:1px 6px!important;max-width:100%;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.cm-row-editor{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:end;gap:6px;padding:6px}.cm-row-editor label{flex:1;min-width:120px;font-size:11px;display:flex;flex-direction:column;gap:4px}.cm-row-editor-actions{display:flex;gap:4px}.cm-row-editor small{flex-basis:100%;color:var(--vscode-descriptionForeground,#aaa)}.cm-tag-manager{display:flex;flex-wrap:wrap;align-items:center;gap:7px;max-height:24vh;overflow:auto;padding:8px;background:var(--vscode-editor-background,#222);border:1px solid var(--vscode-widget-border,#444);border-radius:5px;flex-shrink:0}.cm-tag-manager small,.cm-tag-manager strong{flex-basis:100%}.cm-tag-manager label{display:flex;gap:4px;align-items:center}.cm-confirm{flex-basis:100%;display:flex;gap:6px;align-items:center}.cm-sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0)}
 @media(max-width:640px){.cm-search-panel{padding:8px;gap:6px;height:82vh}.cm-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-tags-filter{grid-column:1/-1}.cm-saved-queries{gap:4px}.cm-row-editor-actions{flex-basis:100%}}
 `;

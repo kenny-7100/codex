@@ -233366,7 +233366,11 @@ function dVi(e) {
       threadId: r,
       title: codexxVisibleTitle(qe ?? "local", r, qt),
       rename: async (name) => Ps(We, qe ?? "local").setThreadTitle(r, name, { requireAcknowledgement: true }),
-      children: hVi.cloneElement(qn, { title: codexxVisibleTitle(qe ?? "local", r, qt), ariaLabel: codexxVisibleTitle(qe ?? "local", r, qt) }),
+      children: (tags) => hVi.cloneElement(qn, {
+        title: hVi.createElement("span", { className: "cm-inline-title" },
+          hVi.createElement("span", { className: "cm-title-text" }, codexxVisibleTitle(qe ?? "local", r, qt)), tags),
+        ariaLabel: codexxVisibleTitle(qe ?? "local", r, qt),
+      }),
     })
   );
 }
