@@ -8,6 +8,7 @@
 | [插件包阅读指南](../../references/vscode-extension/README.md) | 下载版本、文件结构、搜索方法及源码对照线索 |
 | [插件可定制重建工程](../../vscode-extension/README.md) | 可编辑宿主、Webview 恢复、构建与字节一致性验证 |
 | [聊天管理定制与验收](../../vscode-extension/docs/chat-management.md) | 名称、时间、标签搜索，改名与标签持久化，以及真实宿主验收入口 |
+| [Rust 引擎开发与交付条件](vscode-engine-development.md) | 当前 Mac 环境、持续恢复需求、Rust 修改位置、VSIX 内置引擎安装与实施前置条件 |
 | [插件网络故障恢复](vscode-network-recovery.md) | 连接失败持续重试、有界重试、传输回退与包内二进制隔离验证 |
 | [插件来源记录](../../references/vscode-extension/provenance.json) | 精确下载地址、SHA-256 和 Marketplace 元数据 |
 | [本地参考产物决策](../decisions/001-reference-artifacts.md) | 为什么保留完整下载产物并在 Git 中忽略 |

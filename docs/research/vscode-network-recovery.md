@@ -30,6 +30,21 @@ app-server → 远程 LLM endpoint 使用网络。远程模型不可达不等同
   不能把已终止轮次理解为必然会在网络恢复后自动复活。
 - 已写文件、已执行的工具操作不会因模型网络失败自动回滚；重连也不提供逐 token 断点续传或远端请求 exactly-once 的保证。
 
+## 重试提示是否进入模型上下文
+
+仓库代码中 `Session::notify_stream_error` 发送 `EventMsg::StreamError`，并未将重连提示
+追加为普通模型输入；Webview 根据 willRetry 显示重连状态。运行日志与模型上下文分离，
+重试次数增加不等于增加同等数量的对话消息。工具输出或用户消息若包含网络错误，则仍会作为正常内容进入上下文。
+
+[rollout 持久化策略](../../codex-rs/rollout/src/policy.rs) 将 StreamError 与独立 Error 事件归为
+临时、非持久化事件；最终轮次状态与错误可能由 TurnComplete 等结构另行保留。
+不能承诺重新打开聊天还能看到每次重试提示，也不能据此断言本机完全没有故障记录。
+重试可能重发既有上下文，不提供远端用量为零或请求 exactly-once 的保证。
+
+这部分依据当前源码与发布界面分支检查，未对原生包做逐字段请求捕获验证。
+用户期望进一步覆盖所有可恢复访问错误的持续重试，具体需求与实施条件见
+[Rust 引擎开发与交付](vscode-engine-development.md)，该改造尚未实现。
+
 ## 当前二进制的隔离验证
 
 使用临时 CODEX_HOME、临时工作目录、`exec --ephemeral --sandbox read-only --json`，
@@ -47,6 +62,7 @@ app-server → 远程 LLM endpoint 使用网络。远程模型不可达不等同
 
 ## 证据入口
 
+- [重连状态事件的产生](../../codex-rs/core/src/session/mod.rs)：notify_stream_error。
 - [重连分支与传输回退](../../codex-rs/core/src/responses_retry.rs)
 - [默认开关](../../codex-rs/features/src/lib.rs)：UnboundedConnectionRetries 默认 true。
 - [provider 默认参数](../../codex-rs/model-provider-info/src/lib.rs)
