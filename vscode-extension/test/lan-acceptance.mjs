@@ -502,6 +502,25 @@ try {
   }
   assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
   await mobilePage.screenshot({ path: "reports/lan-mobile-fixed-viewport.png" });
+  const mobileFrame = mobilePage.frames().find((f) => f.url().includes("/frame/"));
+  await mobileInput.blur();
+  await mobileFrame.evaluate(() => window.dispatchEvent(new CustomEvent("open-recent-tasks-menu")));
+  const mobilePanel = mobileFrame.getByRole("region", { name: "聊天搜索", exact: true });
+  await mobilePanel.waitFor();
+  assert(await mobileFrame.evaluate(() => !document.activeElement?.matches("input,textarea")), "Opening history must not summon mobile keyboard");
+  for (const height of [844, 430]) {
+    await mobilePage.setViewportSize({ width: 390, height });
+    await mobilePanel.getByLabel("聊天名称", { exact: true }).tap();
+    await mobilePanel.getByLabel("聊天名称", { exact: true }).fill("LAN");
+    assert(await mobilePanel.evaluate((panel) => {
+      const rect = panel.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight &&
+        panel.scrollWidth <= panel.clientWidth + 1;
+    }), "History dialog must stay inside mobile viewport, including keyboard height");
+    assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
+  }
+  await mobilePage.screenshot({ path: "reports/lan-mobile-history.png" });
+  await mobilePanel.getByRole("button", { name: "关闭搜索面板" }).click();
   await mobile.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "reports/lan-mobile.png" });

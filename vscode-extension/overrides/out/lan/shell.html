@@ -21,6 +21,7 @@
     header {
       display: flex;
       align-items: center;
+      min-width: 0;
       gap: 12px;
       padding: 8px 12px;
       border-bottom: 1px solid #444;
@@ -35,6 +36,7 @@
       border-radius: 5px;
       padding: 5px;
       max-width: 65vw;
+      min-width: 0;
     }
     iframe {
       border: 0;
@@ -42,6 +44,8 @@
       width: 100%;
       min-height: 0;
     }
+    header strong, #status { flex-shrink: 0; }
+    header select { flex: 1; }
     #status {
       font-size: 12px;
       color: #aaa;
