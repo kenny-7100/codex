@@ -41,6 +41,22 @@ VSIX 和解压产物被本目录 `.gitignore` 忽略，保留在本地；阅读�
 这是官方发布产物，不能据此还原完整的原始源码组织。打包代码包含依赖和生成内容，不能把每段代码都视为插件团队手写的逻辑。
 包内许可指向 OpenAI 使用条款；不要把本仓库的 Apache-2.0 许可自动套用到插件产物。
 
+## 原始源码的公开范围
+
+核实日期：2026-11-14（Asia/Shanghai），本地包版本为 `26.51111.21308`。
+
+- 本次重新扫描整个 `extension/`，没有 `.ts`、`.tsx` 或 `.map` 文件；扩展清单也没有
+  `repository`、`homepage` 或 `bugs` 字段。`out/extension.js` 和 `webview/assets/` 是可阅读的
+  打包代码，不能等同于完整原始工程或可复现构建所需源码。
+- 在 [源码与许可询问 #2938](https://github.com/openai/codex/issues/2938#issuecomment-3460156887)
+  中，`etraut-openai` 于 2025-10-29 明确回复：扩展没有开源，可视为围绕开源 CLI 的 UI 包装层。
+- 在 [请求开源 #5822](https://github.com/openai/codex/issues/5822#issuecomment-3457392484)
+  中，`gpeal` 于 2025-10-28 回复短期没有开源计划，长期保持开放选项。这是历史回复，不能据此保证未来状态。
+- 本次检索官方公开仓库 `openai/codex` 及 OpenAI 组织中名称或描述含 `vscode` 的仓库，
+  没有定位到该插件的完整原始工程，也没有找到该发布版本对应的前端源码提交。
+- Agent 核心、app-server 和协议实现可从本仓库 `codex-rs/` 阅读；这不证明包内原生程序
+  与当前 checkout 来自同一提交。精确版本对应关系仍需单独验证。
+
 ## 建议的对照阅读顺序
 
 1. **扩展如何进入 VS Code**：先读 `package.json` 的 `main`、`activationEvents` 和 `contributes`。
