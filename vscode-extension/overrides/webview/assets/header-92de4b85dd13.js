@@ -221,7 +221,7 @@ function pt(e) {
     let e;
     t[5] === o ? (e = t[6]) : ((e = (e) => _t(e, o)), (t[5] = o), (t[6] = e));
     let r = n.filter(e);
-    ((c = (0, yt.default)([...r, ...n], ht).slice(0, Math.max(3, r.length))),
+    ((c = (0, yt.default)([...r, ...n], ht).slice(0, Math.max(15, r.length))),
       (t[2] = o),
       (t[3] = n),
       (t[4] = c));
