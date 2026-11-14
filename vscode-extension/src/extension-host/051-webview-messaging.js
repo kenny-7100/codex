@@ -1757,6 +1757,9 @@ var q4t = d.object({
     }
     async handleMessage(e, r) {
       switch (r.type) {
+        case "codexx-chat-manager":
+          await require("./chat-manager-host.cjs").handle(this, e, r);
+          break;
         case "ready":
         case "request-app-server-state":
           break;

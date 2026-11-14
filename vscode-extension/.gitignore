@@ -9,3 +9,7 @@ src/webview/
 resources/
 !.vscode/
 !.vscode/*.json
+
+# Source modules under overrides/out are authored code, not generated output.
+!overrides/out/
+!overrides/out/*.cjs

@@ -16,12 +16,17 @@
     "test": "node --test test/*.test.mjs",
     "smoke": "node scripts/smoke.mjs",
     "check-imports": "node scripts/check-imports.mjs",
-    "test:customization": "node scripts/customization-test.mjs"
+    "test:customization": "node scripts/customization-test.mjs",
+    "test:ui": "playwright test"
   },
   "devDependencies": {
     "@babel/parser": "7.28.5",
     "@jridgewell/gen-mapping": "0.3.13",
+    "@playwright/test": "1.56.1",
     "es-module-lexer": "1.7.0",
-    "prettier": "3.6.2"
+    "esbuild": "0.25.12",
+    "prettier": "3.6.2",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
   }
 }

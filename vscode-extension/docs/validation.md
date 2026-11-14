@@ -2,7 +2,15 @@
 
 范围：官方 `26.51111.21308` / `darwin-arm64` 发布包。核实日期：2026-11-14。
 
-## 验收层次
+## 当前聊天管理定制
+
+当前分支含功能修改，应使用 `npm run verify -- --allow-changes`。预期修改原包中的宿主、
+主 Webview 模块和 header 模块，并新增 4 个聊天管理模块；其余资源保持原字节。
+定制功能、自动化测试与真实界面验收步骤见 [聊天管理定制](chat-management.md)。
+
+下面的字节一致基线记录属于功能定制之前的恢复阶段，不能用于宣称当前定制包与原包一致。
+
+## 恢复阶段验收层次
 
 1. **参考身份**：`npm run bootstrap` 根据独立保存的 `provenance.json` 验证原始 VSIX SHA-256。
 2. **恢复代码**：57 个宿主片段拼接后的规范化 AST 与原宿主一致；12,274 个 Webview JS
@@ -12,7 +20,7 @@
    由变量计算的动态导入不在静态路径存在检查的证明范围内。
 4. **真实宿主**：`npm run smoke -- --probe` 使用独立的 VS Code 数据目录运行扩展测试。
    测试实际激活插件、检查四个主要命令、打开侧栏，并断言插入可编辑源码的探针已经执行。
-   测试后恢复源码和基线构建；结果见本机 `reports/vscode-smoke.json`。
+   测试后恢复探针源码并重建当前定制；结果见本机 `reports/vscode-smoke.json`。
 5. **定制链路**：`npm run test:customization` 修改宿主及 Webview runtime，检查生成的覆盖，
    对 VSIX 全条目做差异检查。预期只有两个 JS 内容改变，其余条目内容不变，CRC 全部有效。
 6. **基线归档**：`npm run package && npm run verify` 检查全部 15,473 个条目、内容、顺序、

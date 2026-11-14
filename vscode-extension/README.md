@@ -8,6 +8,9 @@
 保留已经可读的实现；对难懂的关键路径再做进一步还原；第三方库和语言资源不逐个重写。
 变量名与模块划分来自发布产物，未宣称恢复了官方未公开的 TypeScript/React 原始工程。
 
+当前分支已实现聊天管理定制：小时级绝对时间、逐条改名、多标签，以及只包含名称、时间区间和标签的搜索面板。排序位于列表工具栏。使用与验收入口见 [聊天管理定制](docs/chat-management.md)。
+当前输出是定制包；下文的字节一致性结论描述恢复完成时的未修改基线。
+
 ## 开始使用
 
 需要 Node.js 22+、npm、Python 3.9+。本机使用 Node.js 22.17.0；可选的真实宿主测试还需要
@@ -21,8 +24,9 @@ npm run bootstrap
 npm run recover -- --refresh
 npm run build
 npm run package
-npm run verify
+npm run verify -- --allow-changes
 npm test
+npm run test:ui
 npm run check-imports
 ```
 

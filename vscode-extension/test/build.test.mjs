@@ -32,11 +32,16 @@ test('debug source map retains fragment sources and their contents', async () =>
   } finally { await fs.rm(temporary, { recursive: true, force: true }); }
 });
 
-test('recovered host fragments retain original program AST and exports', async () => {
+test('reference AST remains traceable and custom host retains activation exports and metadata hook', async () => {
   const manifest = await json(path.join(root, 'recovery-manifest.json'));
   const fragments = await Promise.all(manifest.host.map(h => fs.readFile(path.join(root, h.path), 'utf8')));
   const original = await fs.readFile(path.join(reference, 'extension/out/extension.js'), 'utf8');
-  assert.equal(astHash(fragments.join('\n'), 'script'), astHash(original, 'script'));
+  assert.equal(astHash(original, 'script'), manifest.hostAstHash);
+  const custom = fragments.join('\n');
+  assert.notEqual(astHash(custom, 'script'), manifest.hostAstHash);
+  assert.match(custom, /chat-manager-host\.cjs/);
+  assert.match(custom, /activate:\s*\(\) => IZt/);
+  assert.match(custom, /deactivate:\s*\(\) => PZt/);
 });
 
 test('raw ZIP packaging supports baseline, edits, additions, and rejects missing payloads', () => {
