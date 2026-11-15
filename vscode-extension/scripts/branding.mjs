@@ -63,6 +63,27 @@ export function brandJavaScript(code, { locale = false, iconData = null, display
   return { code, edits };
 }
 
+export function brandStartupHTML(html, iconData) {
+  return html.replace('<title>ChatGPT</title>', '<title>Jimao</title>')
+    .replace('<div class="startup-loader__logo"></div>', `<img class="startup-loader__logo" src="${iconData}" alt="Jimao" />`)
+    .replace('</style>', `
+.startup-loader__logo { clip-path: none; background: none; object-fit: contain;
+  border-radius: 50%; transform-origin: 50% 75%;
+  animation: jimao-avatar-wiggle 1.8s ease-in-out infinite; }
+.startup-loader__logo:after { display: none; }
+@keyframes jimao-avatar-wiggle {
+  0%, 55%, 100% { transform: translateY(0) rotate(0); }
+  10% { transform: translateY(-3px) rotate(-7deg); }
+  20% { transform: translateY(-5px) rotate(7deg); }
+  30% { transform: translateY(-2px) rotate(-5deg); }
+  40% { transform: translateY(-1px) rotate(3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .startup-loader__logo { animation: none; transform: none; }
+}
+</style>`);
+}
+
 export async function applyBranding(root, target) {
   const report = [];
   const iconData = 'data:image/svg+xml;base64,' + (await fs.readFile(path.join(root, 'overrides/resources/jimao.svg'))).toString('base64');
@@ -84,10 +105,7 @@ export async function applyBranding(root, target) {
     report.push({ file: relative, strings: result.edits.map(edit => edit.before) });
   }
   const htmlFile = path.join(target, 'webview/index.html');
-  let html = await fs.readFile(htmlFile, 'utf8');
-  html = html.replace('<title>ChatGPT</title>', '<title>Jimao</title>')
-    .replace('<div class="startup-loader__logo"></div>', `<img class="startup-loader__logo" src="${iconData}" alt="Jimao" />`)
-    .replace('</style>', '.startup-loader__logo { clip-path: none; background: none; object-fit: contain; }\n.startup-loader__logo:after { display: none; }\n</style>');
+  const html = brandStartupHTML(await fs.readFile(htmlFile, 'utf8'), iconData);
   await write(htmlFile, html);
   changes.push('webview/index.html');
   const readmeFile = path.join(target, 'readme.md');

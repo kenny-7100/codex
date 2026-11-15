@@ -7,7 +7,8 @@
 ## 决定
 
 - 用户可见的插件品牌使用 **Jimao**，替换扩展显示名称、命令与视图标题、设置说明、面板标题、界面默认文案与多语言文案中的 Codex 品牌。
-- Logo 使用用户桌面 `kbtc.svg` 的图案。源文件副本位于 `vscode-extension/overrides/resources/jimao.svg`，配套 256 × 256 PNG 用于扩展列表；不依赖用户桌面路径构建。
+- 2026-11-15 用户要求替换旧 BTC Logo。当前图标来自桌面 `images.jpeg`（218 × 200）：裁剪区域 `(0, 0, 200, 200)`，以脸部为中心保留头部，生成透明圆形、抗锯齿边缘的 256 × 256 PNG。资源位于 `vscode-extension/overrides/resources/jimao.png`，`jimao.svg` 内嵌同一 PNG，用于侧栏、视图、Webview 品牌图形和启动页；不依赖用户桌面路径构建。旧 BTC 资源已被替换。
+- 启动加载头像使用轻微左右摇摆与上下弹动，1.8 秒一轮并保留停顿；替代旧光晕闪烁。遵循 `prefers-reduced-motion`，启用减少动态效果时静止。动画仅作用于启动加载头像。
 - 2026-11-15 用户要求截图中的中央轮廓终端 Logo 在任何状态都不显示。共享组件 `dpa`（`app-initial-17dd08407f00.js`）直接返回空，所有引用均不再渲染；该要求作用于桌面与浏览器页面的此图案。
 - 保留 `openai.chatgpt` 扩展身份、版本、命令与视图 ID、配置键、协议和原有数据读取位置。安装 Jimao 会替换同身份的官方扩展。
 - 历史聊天、用户内容、模型指令、内部名称、技术路径、请求头、来源和许可声明不做品牌替换。
@@ -17,7 +18,7 @@
 
 扩展声明在 `src/manifest.json` 和 `src/vsixmanifest.xml` 中维护，宿主界面标题在对应宿主片段中维护。
 `scripts/branding.mjs` 在构建副本中按语法树定位界面文案与语言字典，保留消息 ID、ICU 参数和用户插值；
-对已定位的品牌图形替换为用户 SVG，处理启动画面和扩展详情。生成结果及文案变更清单保留在本机 `reports/branding.json`。
+对已定位的品牌图形替换为当前圆形照片 SVG，处理启动画面和扩展详情。生成结果及文案变更清单保留在本机 `reports/branding.json`。
 不修改原始参考包，不对运行中的 DOM 或用户内容执行全文替换。
 
 执行 `npm test`、`npm run test:ui`、`npm run smoke`、`npm run check-imports`，再构建归档并执行
