@@ -221,3 +221,25 @@ test("ten-row pages preserve global search and reset after filters, sorting and 
   await expect(page.getByRole("status")).toHaveText("134 个聊天");
   await expect(info).toHaveText("第 1 / 14 页 · 每页 10 条");
 });
+
+
+test("touch search controls have compact visual fonts and aligned toolbar heights", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  try {
+    const page = await context.newPage();
+    await page.goto("http://127.0.0.1:4317/");
+    await page.evaluate(() => { const meta = document.createElement("meta"); meta.name = "viewport"; meta.content = "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"; document.head.append(meta); });
+    const panel = page.getByRole("region", { name: "聊天搜索", exact: true });
+    await expect(panel).toBeVisible();
+    for (const control of [panel.getByLabel("聊天名称", { exact: true }), panel.getByLabel("开始时间"), panel.getByLabel("结束时间"), panel.getByLabel("标签", { exact: true }), panel.getByLabel("排序", { exact: true })]) {
+      const metrics = await control.evaluate(el => { const s = getComputedStyle(el); return { visualFont: parseFloat(s.fontSize) * parseFloat(s.zoom), font: parseFloat(s.fontSize) }; });
+      expect(metrics.font).toBe(16);
+      expect(metrics.visualFont).toBeCloseTo(13, 1);
+    }
+    const heights = await Promise.all([panel.getByLabel("排序", { exact: true }), panel.getByRole("button", { name: "刷新", exact: true }), panel.getByRole("button", { name: "清空筛选" })].map(async el => (await el.boundingBox()).height));
+    for (const height of heights) expect(height).toBeCloseTo(28, 0);
+    await page.screenshot({ path: "reports/chat-manager-touch-typography.png" });
+    expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.screenshot({ path: "reports/chat-manager-touch-typography.png" });
+  } finally { await context.close(); }
+});
