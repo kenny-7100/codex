@@ -69,6 +69,8 @@ export function brandStartupHTML(html, iconData) {
     .replace('<div id="root">', '<div id="root"></div><div id="jimao-startup">')
     .replace('</body>', '<script src="./assets/jimao-startup.js"></script></body>')
     .replace('</style>', `
+/* VS Code injects body padding before application styles arrive. */
+html, body { margin: 0; padding: 0; box-sizing: border-box; }
 #jimao-startup { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
 .startup-loader { position: absolute; inset: 0; }
 .jimao-loading-avatar { position: fixed !important; inset: 0 !important; }

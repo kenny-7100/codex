@@ -84,3 +84,10 @@ SDK 缓存/默认配置，原网络请求继续进入数据适配器缓存，保
 出现正文或可交互内容后永久撤下。错误文字和登录控件也能结束启动图，不能只等聊天输入框。
 `qA` 为品牌加载占位增加显式类名，统一视口居中、大小和可爱抖动，移除旧光晕与延迟淡入；
 减少动态效果时保持静止。后续正常加载不重新挂载静态启动图。
+
+首次绘制的 CSS 重置必须在启动 HTML 内完成：VS Code 1.146.0 的
+`out/vs/workbench/contrib/webview/browser/pre/index.html` 默认注入 `body { padding: 0 20px; }`。
+启动文档的 `width: 100%` 若依赖稍后才加载的应用 CSS 清除 padding，就会短暂多出 40px 横向溢出。
+`scripts/branding.mjs` 在内联样式中显式设置 `html, body` 的零 margin/padding 与 border-box；
+无需隐藏全页横向溢出，内部代码块仍可独立滚动。`test/ui/branding.spec.mjs` 注入宿主默认样式、
+去掉全部应用样式，覆盖窄屏/桌面宽度和动画阶段，防止正常渲染后的检查漏掉首帧问题。

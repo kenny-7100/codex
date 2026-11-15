@@ -79,3 +79,36 @@ for (const width of [390, 1100]) {
     await expect(page.getByRole('alert')).toBeVisible();
   });
 }
+
+for (const width of [320, 940]) {
+  test(`VS Code default body padding cannot overflow the startup document before app CSS loads (${width})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    // VS Code injects this style before the extension document. Deliberately
+    // omit application CSS so this checks the very first paint, not its reset.
+    const hostHTML = html.replace('<head>', '<head><style>body { margin: 0; padding: 0 20px; }</style>');
+    await page.route('**/logo-preview', route => route.fulfill({ contentType: 'text/html', body: hostHTML }));
+    await page.goto('/logo-preview');
+    for (const phase of [0, 180, 360, 720]) {
+      await page.locator('#jimao-startup img').evaluate((el, phase) => {
+        const animation = el.getAnimations()[0];
+        animation.pause();
+        animation.currentTime = phase;
+      }, phase);
+      const dimensions = await page.evaluate(() => ({
+        viewport: innerWidth,
+        document: document.documentElement.scrollWidth,
+        body: document.body.getBoundingClientRect().width,
+        root: document.getElementById('root').getBoundingClientRect().width,
+      }));
+      expect(dimensions.document).toBe(dimensions.viewport);
+      expect(dimensions.body).toBe(width);
+      expect(dimensions.root).toBe(width);
+    }
+    // A document reset must preserve scrolling inside actual app content.
+    await page.evaluate(() => {
+      document.getElementById('root').innerHTML = '<div id="code" style="width:100%;overflow-x:auto"><pre style="width:1800px">long code</pre></div>';
+      document.getElementById('code').scrollLeft = 100;
+    });
+    expect(await page.locator('#code').evaluate(el => el.scrollLeft)).toBe(100);
+  });
+}
