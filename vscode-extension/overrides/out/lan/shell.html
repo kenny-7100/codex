@@ -296,15 +296,20 @@
       retry.hidden = home.hidden = true;
       if (!id && !code) {
         selected = "";
+        select.value = "";
+        sessionStorage.removeItem("jimao-window");
         resolving = false;
         explanation.textContent = "请选择 VS Code 窗口。";
+        status.textContent = "未选择窗口";
         setPath("/");
+        fitWindowLabels();
         return;
       }
       const cached = !code && sessions.get(id);
       if (cached) {
         selected = id;
         select.value = id;
+        sessionStorage.setItem("jimao-window", id);
         frame = cached.frame;
         frame.id = "view";
         frame.hidden = false;
@@ -375,7 +380,11 @@
       try {
         const r = await fetch("/windows"),
           list = await r.json();
-        const chosen = selected || sessionStorage.getItem("jimao-window") || "";
+        // Restore a saved window only on entry, never over an explicit clear.
+        const chosen =
+          selected ||
+          (!initialized && sessionStorage.getItem("jimao-window")) ||
+          "";
         const signature = JSON.stringify(
           list.map(({ id, name, folders }) => ({ id, name, folders })),
         );
@@ -557,11 +566,16 @@
         }
         return;
       }
-      if (
-        e.source === frame.contentWindow &&
-        e.data?.type === "jimao-connection"
-      ) {
+      if (e.data?.type === "jimao-connection") {
         const current = sessions.get(selected);
+        if (
+          !current ||
+          current.frame !== frame ||
+          frame.hidden ||
+          resolving ||
+          e.source !== current.frame.contentWindow
+        )
+          return;
         status.textContent =
           current?.fallback && e.data.status === "已连接"
             ? "原窗口已关闭，已通过可用工作区打开"
