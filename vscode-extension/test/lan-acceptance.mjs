@@ -972,6 +972,57 @@ try {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   );
+  // More than eight real history entries must not push the H5 composer off screen.
+  await frameB.evaluate(async () => {
+    const script = document.querySelector('script[src*="assets/index-"]');
+    const manager = await import(
+      new URL("./chat-manager-store.js", script.src)
+    );
+    for (let i = 0; i < 12; i++) {
+      const result = await manager.nativeRequest("thread/start", {
+        ephemeral: false,
+        approvalPolicy: "never",
+        sandbox: "read-only",
+      });
+      await manager.nativeRequest("turn/start", {
+        threadId: result.thread.id,
+        input: [{ type: "text", text: "Home viewport fixture " + i }],
+      });
+      await manager.nativeRequest("thread/name/set", {
+        threadId: result.thread.id,
+        name: "Home viewport fixture " + i,
+      });
+    }
+  });
+  const homeContext = await browser.newContext({
+    viewport: { width: 390, height: 740 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  try {
+    const homePage = await homeContext.newPage();
+    await homePage.goto(browserAddress);
+    await homePage.locator("select").selectOption(readyB.windowId);
+    const home = homePage.frameLocator("#view");
+    await home.getByRole("textbox").waitFor();
+    await home.locator(".cm-original-row").nth(7).waitFor();
+    assert.equal(
+      await home.locator(".cm-original-row").count(),
+      8,
+      "H5 home must show exactly eight rows when history exceeds eight",
+    );
+    await home.getByRole("textbox").fill("Unsent viewport acceptance draft");
+    const send = home.getByRole("button", { name: "Send", exact: true });
+    await send.waitFor();
+    const bounds = await send.boundingBox();
+    assert(
+      bounds.y >= 0 && bounds.y + bounds.height <= 740,
+      "H5 home send button must remain fully visible",
+    );
+    await homePage.screenshot({ path: "reports/lan-home-eight.png" });
+  } finally {
+    await homeContext.close();
+  }
   console.log(
     "TWO REAL HOSTS, WINDOW SWITCH, DRAFT ISOLATION, OWNER CLOSE AND MOBILE PASSED",
   );
@@ -998,6 +1049,7 @@ try {
         "window switch and drafts",
         "owner close preserves second window",
         "mobile layout and fixed viewport gestures/input focus",
+        "H5 home capped at eight conversations with visible composer",
       ],
       requests: requests.length,
     }),
