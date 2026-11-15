@@ -92,6 +92,29 @@
         max-width: 15%;
       }
     }
+    #manual-copy {
+      max-width: min(440px, calc(100vw - 40px));
+      box-sizing: border-box;
+      border: 1px solid #555;
+      border-radius: 10px;
+      background: #252525;
+      color: #ddd;
+    }
+    #manual-copy::backdrop {
+      background: #0009;
+    }
+    #manual-copy input {
+      box-sizing: border-box;
+      width: 100%;
+      font-size: 16px;
+      color: #ddd;
+      background: #181818;
+      border: 1px solid #777;
+      padding: 8px;
+    }
+    #manual-copy button {
+      margin-top: 12px;
+    }
     #empty {
       min-height: 0;
       overflow: auto;
@@ -118,6 +141,12 @@
     <a id="home" href="/" hidden>返回首页</a>
   </div>
   <iframe id="view" title="Jimao 聊天" hidden></iframe>
+  <dialog id="manual-copy" aria-labelledby="manual-copy-title">
+    <p id="manual-copy-title">未能自动复制，请手动复制以下链接</p>
+    <input id="manual-copy-url" aria-label="会话链接" readonly />
+    <p>电脑上按 ⌘C 或 Ctrl+C；手机上长按链接并选择“复制”。</p>
+    <form method="dialog"><button>关闭</button></form>
+  </dialog>
   <script>
     // Only the outer shell follows the visual viewport. Its iframe inherits the
     // resulting size, so keyboard height and safe-area padding are applied once.
@@ -384,14 +413,60 @@
     retry.onclick = () =>
       codeFromPath() !== null ? openAddress() : switchWindow(select.value);
     window.addEventListener("popstate", openAddress);
+    function copyWithSelection(text) {
+      const active = document.activeElement;
+      const selection = window.getSelection();
+      const ranges = selection
+        ? Array.from({ length: selection.rangeCount }, (_, i) =>
+            selection.getRangeAt(i).cloneRange(),
+          )
+        : [];
+      const field = document.createElement("textarea");
+      field.value = text;
+      field.readOnly = true;
+      field.style.cssText =
+        "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px";
+      document.body.append(field);
+      try {
+        field.focus({ preventScroll: true });
+        field.select();
+        field.setSelectionRange(0, text.length);
+        return document.execCommand("copy");
+      } catch {
+        return false;
+      } finally {
+        field.remove();
+        active?.focus({ preventScroll: true });
+        if (selection) {
+          selection.removeAllRanges();
+          for (const range of ranges) selection.addRange(range);
+        }
+      }
+    }
     share.onclick = async () => {
       const url = location.origin + location.pathname;
+      share.disabled = true;
       try {
-        if (!navigator.clipboard?.writeText) throw Error();
-        await navigator.clipboard.writeText(url);
-        status.textContent = "会话链接已复制";
-      } catch {
-        window.prompt("复制会话链接", url);
+        let copied = false;
+        if (navigator.clipboard?.writeText) {
+          try {
+            await navigator.clipboard.writeText(url);
+            copied = true;
+          } catch {}
+        }
+        if (!copied) copied = copyWithSelection(url);
+        if (copied) status.textContent = "会话链接已复制";
+        else {
+          status.textContent = "未能自动复制，请手动复制";
+          const dialog = document.querySelector("#manual-copy");
+          const field = document.querySelector("#manual-copy-url");
+          field.value = url;
+          dialog.showModal();
+          field.focus({ preventScroll: true });
+          field.select();
+        }
+      } finally {
+        share.disabled = false;
       }
     };
     window.addEventListener("message", async (e) => {

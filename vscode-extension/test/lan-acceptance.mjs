@@ -434,20 +434,13 @@ try {
     );
     if (fallback)
       await direct.getByText("原窗口已关闭，已通过可用工作区打开").waitFor();
-    let promptValue;
-    direct.once("dialog", async (dialog) => {
-      promptValue = dialog.defaultValue();
-      await dialog.dismiss();
-    });
     await direct
       .getByRole("button", { name: "复制会话链接", exact: true })
       .click();
-    if (promptValue !== undefined) assert.equal(promptValue, sharedURL);
-    else
-      await direct.waitForFunction(
-        () =>
-          document.querySelector("#status").textContent === "会话链接已复制",
-      );
+    await direct.waitForFunction(
+      () => document.querySelector("#status").textContent === "会话链接已复制",
+    );
+    assert.equal(await direct.locator("#manual-copy").isVisible(), false);
     for (const width of [320, 390, 1100]) {
       await direct.setViewportSize({ width, height: 900 });
       assert(
