@@ -15,7 +15,8 @@ await new Promise((r) => portProbe.listen(0, "127.0.0.1", r));
 const lanPort = portProbe.address().port;
 await new Promise((r) => portProbe.close(r));
 let hold = false,
-  nextTool = false;
+  nextTool = false,
+  deferNextResponseMs = 0;
 const children = [];
 const requests = [];
 const mock = http.createServer(async (req, res) => {
@@ -29,6 +30,9 @@ const mock = http.createServer(async (req, res) => {
     );
     return;
   }
+  const responseDelay = deferNextResponseMs;
+  deferNextResponseMs = 0;
+  if (responseDelay) await pause(responseDelay);
   res.writeHead(200, { "content-type": "text/event-stream" });
   const message = nextTool
     ? {
@@ -241,6 +245,41 @@ try {
   );
   await page.screenshot({ path: "reports/lan-chat.png" });
   console.log("CHAT PASSED");
+  // Mobile suspension/BFCache restores the same application and unsent draft.
+  const mobileFrameSource = await page.locator("#view").getAttribute("src");
+  await editor.fill("Unsent background draft");
+  await frame.evaluate(() => { window.__backgroundIdentity = crypto.randomUUID(); });
+  const backgroundIdentity = await frame.evaluate(() => window.__backgroundIdentity);
+  for (let cycle = 0; cycle < 3; cycle++) {
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
+    await frame.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
+    await pause(150);
+    await frame.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
+    await page.waitForFunction(() => document.querySelector("#status").textContent === "已连接");
+    assert.equal(await page.locator("#view").getAttribute("src"), mobileFrameSource);
+    assert.equal(await frame.evaluate(() => window.__backgroundIdentity), backgroundIdentity);
+    assert.equal(await editor.innerText(), "Unsent background draft");
+  }
+  await editor.fill("");
+  console.log("MOBILE LIFECYCLE, SAME FRAME AND UNSENT DRAFT PASSED");
+  const previousReplies = await frame.getByText("LAN acceptance response.", { exact: true }).count();
+  deferNextResponseMs = 1500;
+  await editor.fill("Complete while browser is suspended");
+  await editor.press("Enter");
+  for (let attempt = 0; !requests.some(r => JSON.stringify(r).includes("Complete while browser is suspended")); attempt++) {
+    if (attempt > 200) throw Error("Deferred model request was not admitted");
+    await pause(50);
+  }
+  const requestsDuringSuspension = requests.length;
+  await page.context().setOffline(true);
+  await pause(3000);
+  await page.context().setOffline(false);
+  await frame.getByText("LAN acceptance response.", { exact: true }).nth(previousReplies).waitFor();
+  await page.waitForFunction(() => document.querySelector("#status").textContent === "已连接");
+  assert.equal(await page.locator("#view").getAttribute("src"), mobileFrameSource);
+  assert.equal(await frame.evaluate(() => window.__backgroundIdentity), backgroundIdentity);
+  assert.equal(requests.length, requestsDuringSuspension, "Missed completion must replay without resubmitting the turn");
+  console.log("REAL ENGINE COMPLETION WHILE OFFLINE REPLAYED WITHOUT RELOAD PASSED");
   await protocolAcceptance(browser, browserAddress, ready.windowId, requests);
   // Rendering the first response can precede replacement of the optimistic
   // client route. Diff return must exercise a persisted conversation ID.
@@ -516,6 +555,12 @@ try {
   await frame
     .getByRole("button", { name: /Allow once/ })
     .waitFor({ timeout: 30000 });
+  const approvalFrameSource = await page.locator("#view").getAttribute("src");
+  await page.context().setOffline(true);
+  await pause(500);
+  await page.context().setOffline(false);
+  await page.waitForFunction(() => document.querySelector("#status").textContent === "已连接");
+  assert.equal(await page.locator("#view").getAttribute("src"), approvalFrameSource);
   await page.screenshot({ path: "reports/lan-approval.png" });
   await frame.getByRole("button", { name: /Allow once/ }).click();
   await frame.getByRole("textbox").waitFor();
@@ -569,16 +614,12 @@ try {
   const oldFrameSource = await page.locator("#view").getAttribute("src");
   console.log("OUTAGE START");
   await page.context().setOffline(true);
-  await pause(500);
+  await pause(23000);
   await page.context().setOffline(false);
   console.log("OUTAGE ENDED");
-  await page.waitForFunction(
-    (old) => document.querySelector("#view")?.getAttribute("src") !== old,
-    oldFrameSource,
-    { timeout: 30000 },
-  );
-  console.log("CLIENT REPLACED");
-  frame = await (await page.locator("#view").elementHandle()).contentFrame();
+  await page.waitForFunction(() => document.querySelector("#status").textContent === "已连接", null, { timeout: 30000 });
+  assert.equal(await page.locator("#view").getAttribute("src"), oldFrameSource, "Transport recovery must preserve the live application");
+  console.log("SAME CLIENT RESUMED");
   await frame
     .getByRole("button", { name: /Stop|停止/ })
     .first()

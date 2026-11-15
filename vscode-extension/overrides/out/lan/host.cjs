@@ -111,7 +111,7 @@ function register(vscode, context, controller) {
       const h = await fetch(endpoint + "/health", {
         signal: AbortSignal.timeout(1000),
       }).then((r) => r.json());
-      if (h.service === "jimao-lan" && h.version === 3) {
+      if (h.service === "jimao-lan" && h.version === 4) {
         if (d.port !== port)
           throw Error(`共享入口已使用端口 ${d.port}，请使用相同端口`);
         return;
@@ -124,7 +124,7 @@ function register(vscode, context, controller) {
       const h = await fetch(endpoint + "/health", {
         signal: AbortSignal.timeout(500),
       }).then((r) => r.json());
-      if (h.service === "jimao-lan" && h.version !== 3)
+      if (h.service === "jimao-lan" && h.version !== 4)
         throw Error(
           "请先关闭所有旧窗口的局域网访问，等待 30 秒后重新开启，以升级共享入口",
         );
@@ -132,7 +132,7 @@ function register(vscode, context, controller) {
       if (error.message.startsWith("请先关闭")) throw error;
     }
     // Copy the gateway out of the versioned extension install directory.
-    const runtime = path.join(storage, "runtime-v3");
+    const runtime = path.join(storage, "runtime-v4");
     await fs.mkdir(runtime, { recursive: true });
     for (const file of ["server.cjs", "shell.html", "links.cjs"])
       await fs.copyFile(path.join(__dirname, file), path.join(runtime, file));
@@ -427,7 +427,7 @@ function register(vscode, context, controller) {
       }).then((r) => r.json());
       if (
         health.service !== "jimao-lan" ||
-        health.version !== 3 ||
+        health.version !== 4 ||
         !health.enabled
       ) {
         if (running) await detach();

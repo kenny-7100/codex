@@ -53,7 +53,7 @@ test("gateway isolates windows and clients, survives owner disconnect, and restr
       b = (await req("/connect", { windowId: "bbbb" })).data.id;
     assert.equal((await req("/internal/poll?window=aaaa")).data[0].clientId, a);
     assert.equal((await req("/internal/poll?window=bbbb")).data[0].clientId, b);
-    await req("/message/" + a, { type: "test", id: 1 });
+    await req("/message/" + a, { sequence: 1, message: { type: "test", id: 1 } });
     assert.equal(
       (await req("/internal/poll?window=aaaa")).data[0].message.id,
       1,
@@ -184,7 +184,7 @@ test("activated hosts join globally, stop together, and do not reopen after last
   await fs.mkdir(path.join(root, "jimao-lan"));
   await fs.writeFile(
     path.join(root, "jimao-lan/gateway.json"),
-    JSON.stringify({ port: address.port, secret: gateway.secret, version: 3 }),
+    JSON.stringify({ port: address.port, secret: gateway.secret, version: 4 }),
   );
   const { register } = createRequire(import.meta.url)(
     "../overrides/out/lan/host.cjs",

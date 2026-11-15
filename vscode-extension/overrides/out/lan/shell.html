@@ -582,10 +582,8 @@
             : e.data.status;
       }
     });
-    window.addEventListener("pagehide", () => {
-      for (const s of sessions.values())
-        navigator.sendBeacon("/disconnect/" + s.client, "{}");
-    });
+    // A hidden page may return from BFCache or mobile suspension. Retain its
+    // transport session; the gateway bounds abandoned sessions by time and bytes.
     refresh();
     setInterval(refresh, 3000);
   </script>

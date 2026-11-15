@@ -173,9 +173,15 @@ export async function protocolAcceptance(browser, address, windowId, requests) {
       .getByRole("button", { name: "Edit message", exact: true })
       .last()
       .click();
+    // Lexical mounts the editor before it hydrates the original message. Filling
+    // before hydration can append the replacement to the late initial value.
+    await frame.waitForFunction(() =>
+      document.querySelector('[contenteditable="true"][aria-label="Edit message"]')?.innerText === "legacy-second-editable",
+    );
     await frame
       .locator('[contenteditable="true"][aria-label="Edit message"]')
       .fill("legacy-second-edited");
+    assert.equal(await frame.locator('[contenteditable="true"][aria-label="Edit message"]').innerText(), "legacy-second-edited");
     await frame
       .getByRole("button", { name: "Send", exact: true })
       .first()

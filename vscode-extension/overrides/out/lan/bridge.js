@@ -67,46 +67,173 @@
     v instanceof Uint8Array ? { __jimaoBytes: Array.from(v) } : v;
   let queue = Promise.resolve(),
     connected = false,
-    waiting = [];
+    terminal = false;
+  let received = 0,
+    outgoing = 0,
+    events,
+    recovering = false,
+    epoch = 0;
+  let ackTimer,
+    retryTimer,
+    lastHeartbeat = Date.now();
   function status(text) {
     parent.postMessage(
       { type: "jimao-connection", status: text },
       location.origin,
     );
   }
-  let recovering = false;
-  function recover() {
-    if (recovering) return;
-    recovering = true;
+  async function request(url, data) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      return await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data, encode),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  function reset() {
+    if (terminal) return;
+    terminal = true;
+    ++epoch;
     connected = false;
-    events.close();
+    events?.close();
+    clearTimeout(ackTimer);
+    clearTimeout(retryTimer);
+    parent.postMessage({ type: "jimao-reconnect", windowId }, location.origin);
+  }
+  function expired(response) {
+    if ([404, 409, 410].includes(response.status)) {
+      reset();
+      return true;
+    }
+    return false;
+  }
+  function acknowledge() {
+    if (ackTimer || terminal || !connected) return;
+    ackTimer = setTimeout(async () => {
+      ackTimer = null;
+      if (!connected || terminal) return;
+      try {
+        const response = await request("/ack/" + id, { received });
+        if (!expired(response) && !response.ok) recover();
+      } catch {
+        recover();
+      }
+    }, 250);
+  }
+  function recover() {
+    if (recovering || terminal) return;
+    recovering = true;
+    const attempt = ++epoch;
+    connected = false;
+    events?.close();
+    events = null;
+    clearTimeout(ackTimer);
+    ackTimer = null;
     status("连接中断，正在恢复…");
     const retry = async () => {
+      if (terminal || attempt !== epoch) return;
       try {
-        const response = await fetch("/health", { cache: "no-store" });
-        if (!response.ok) throw Error();
-        parent.postMessage(
-          { type: "jimao-reconnect", windowId },
-          location.origin,
-        );
+        const response = await request("/resume/" + id, { received });
+        if (terminal || attempt !== epoch) return;
+        if (expired(response)) return;
+        if (!response.ok) throw Error("Transport unavailable");
+        const stream = (events = new EventSource(
+          "/events/" + id + "?after=" + received,
+        ));
+        let ready = false;
+        const failed = () => {
+          if (events !== stream || terminal) return;
+          stream.close();
+          events = null;
+          connected = false;
+          recovering = true;
+          clearTimeout(retryTimer);
+          retryTimer = setTimeout(retry, 1000);
+          status("连接中断，正在恢复…");
+        };
+        stream.onerror = failed;
+        stream.addEventListener("reset", reset);
+        stream.addEventListener("offline", reset);
+        stream.addEventListener("heartbeat", () => {
+          if (events !== stream) return;
+          lastHeartbeat = Date.now();
+          acknowledge();
+        });
+        stream.addEventListener("message", (e) => {
+          if (events !== stream || terminal) return;
+          const sequence = Number(e.lastEventId);
+          if (sequence <= received) return;
+          if (!Number.isSafeInteger(sequence) || sequence !== received + 1) {
+            reset();
+            return;
+          }
+          try {
+            const message = JSON.parse(e.data, revive);
+            if (message.type === "jimao-pick-images") pick(message.requestId);
+            else
+              window.dispatchEvent(
+                new MessageEvent("message", {
+                  data: message,
+                  origin: location.origin,
+                  source: window,
+                }),
+              );
+            received = sequence;
+            acknowledge();
+          } catch {
+            reset();
+          }
+        });
+        stream.addEventListener("ready", () => {
+          if (events !== stream || terminal) return;
+          clearTimeout(retryTimer);
+          ready = true;
+          recovering = false;
+          connected = true;
+          lastHeartbeat = Date.now();
+          status("已连接");
+          acknowledge();
+        });
+        // A fetch may succeed while the event stream itself stalls.
+        retryTimer = setTimeout(() => {
+          if (!ready) failed();
+        }, 10000);
       } catch {
-        setTimeout(retry, 1000);
+        if (!terminal && attempt === epoch)
+          retryTimer = setTimeout(retry, 1000);
       }
     };
-    setTimeout(retry, 500);
+    retry();
   }
-  window.addEventListener("offline", recover);
   function send(message) {
+    const sequence = ++outgoing;
     queue = queue
       .then(async () => {
-        const r = await fetch("/message/" + id, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(message, encode),
-        });
-        if (!r.ok) throw Error("窗口连接中断");
+        while (!terminal) {
+          if (!connected) {
+            await new Promise((r) => setTimeout(r, 100));
+            continue;
+          }
+          try {
+            const response = await request("/message/" + id, {
+              sequence,
+              message,
+            });
+            if (expired(response)) return;
+            if (response.ok) return;
+          } catch {}
+          // The server may have accepted this sequence before its response was
+          // lost. Retry the same sequence after resume, never submit it twice.
+          recover();
+        }
       })
-      .catch(() => recover());
+      .catch(reset);
   }
   window.acquireVsCodeApi = () => ({
     postMessage(message) {
@@ -114,7 +241,7 @@
         window.open(message.url, "_blank", "noopener");
         return;
       }
-      connected ? send(message) : waiting.push(message);
+      send(message);
     },
     getState() {
       try {
@@ -128,42 +255,31 @@
       return state;
     },
   });
-  let opened = false;
-  const events = new EventSource("/events/" + id);
-  events.onopen = () => {
-    if (opened) {
-      events.close();
-      parent.postMessage(
-        { type: "jimao-reconnect", windowId },
-        location.origin,
-      );
-      return;
-    }
-    opened = true;
-    connected = true;
-    status("已连接");
-    for (const message of waiting) send(message);
-    waiting = [];
-  };
-  events.onerror = recover;
-  events.addEventListener("offline", () => {
-    recover();
+  window.addEventListener("offline", recover);
+  window.addEventListener("online", recover);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") recover();
   });
-  events.addEventListener("message", (e) => {
-    if (recovering) return;
-    const message = JSON.parse(e.data, revive);
-    if (message.type === "jimao-pick-images") {
-      pick(message.requestId);
-      return;
-    }
-    window.dispatchEvent(
-      new MessageEvent("message", {
-        data: message,
-        origin: location.origin,
-        source: window,
-      }),
-    );
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) recover();
   });
+  window.addEventListener("pagehide", () => {
+    // Do not destroy the host's virtual Webview on BFCache/mobile suspension.
+    ++epoch;
+    events?.close();
+    events = null;
+    connected = false;
+    recovering = false;
+    clearTimeout(retryTimer);
+    clearTimeout(ackTimer);
+    ackTimer = null;
+  });
+  setInterval(() => {
+    if (document.visibilityState !== "visible" || terminal) return;
+    if (connected && Date.now() - lastHeartbeat > 15000) recover();
+    else acknowledge();
+  }, 5000);
+  recover();
   async function pick(requestId) {
     const input = document.createElement("input");
     input.type = "file";

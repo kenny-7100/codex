@@ -5,7 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { EventEmitter } = require("node:events");
 const { createLinks, CODE, THREAD } = require("./links.cjs");
-const VERSION = 3;
+const VERSION = 4;
 const MAX_BODY = 24 * 1024 * 1024;
 function createGateway({
   port = 8765,
@@ -17,6 +17,9 @@ function createGateway({
     "jimao-test-links-" + crypto.randomUUID() + ".json",
   ),
   resolveTimeoutMs = 15000,
+  clientRetentionMs = 10 * 60 * 1000,
+  maxReplayBytes = 8 * 1024 * 1024,
+  maxReplayMessages = 2048,
 } = {}) {
   const windows = new Map(),
     clients = new Map();
@@ -77,13 +80,51 @@ function createGateway({
     win.queue.push(event);
     win.wake.emit("queue");
   };
-  const emit = (client, event, data) => {
-    if (!client.stream || client.stream.writableLength > MAX_BODY) {
-      client.stream?.destroy();
+  function writeEvent(client, event, data, sequence) {
+    if (!client.stream) return;
+    if (client.stream.writableLength > MAX_BODY) {
+      client.stream.destroy();
       return;
     }
-    client.stream.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-  };
+    client.stream.write(
+      `${sequence ? `id: ${sequence}\n` : ""}event: ${event}\ndata: ${typeof data === "string" ? data : JSON.stringify(data)}\n\n`,
+    );
+  }
+  function acknowledge(client, received) {
+    if (
+      !Number.isSafeInteger(received) ||
+      received < client.ack ||
+      received > client.sequence
+    )
+      throw Object.assign(Error("Transport history unavailable"), {
+        status: 409,
+      });
+    client.ack = received;
+    while (client.replay[0]?.sequence <= received)
+      client.replayBytes -= client.replay.shift().bytes;
+  }
+  function emit(client, event, data) {
+    if (event !== "message") return writeEvent(client, event, data);
+    const payload = JSON.stringify(data),
+      bytes = Buffer.byteLength(payload);
+    const totalBytes = [...clients.values()].reduce(
+      (sum, c) => sum + c.replayBytes,
+      0,
+    );
+    if (
+      client.replay.length >= maxReplayMessages ||
+      client.replayBytes + bytes > maxReplayBytes ||
+      totalBytes + bytes > 64 * 1024 * 1024
+    ) {
+      writeEvent(client, "reset", {});
+      closeClient(client.id);
+      return;
+    }
+    const sequence = ++client.sequence;
+    client.replay.push({ sequence, payload, bytes });
+    client.replayBytes += bytes;
+    writeEvent(client, event, payload, sequence);
+  }
   function closeClient(id) {
     const c = clients.get(id);
     if (!c) return;
@@ -282,6 +323,11 @@ function createGateway({
           id,
           windowId: w.id,
           html: null,
+          sequence: 0,
+          ack: 0,
+          incoming: 0,
+          replay: [],
+          replayBytes: 0,
           lastSeen: Date.now(),
         });
         enqueue(w, {
@@ -296,7 +342,7 @@ function createGateway({
         });
       }
       const match = url.pathname.match(
-        /^\/(events|message|frame|disconnect)\/([a-f0-9-]+)$/,
+        /^\/(events|message|frame|disconnect|ack|resume)\/([a-f0-9-]+)$/,
       );
       if (match) {
         const [, action, id] = match,
@@ -305,7 +351,19 @@ function createGateway({
         c.lastSeen = Date.now();
         const w = windows.get(c.windowId);
         if (!w) return json(res, 410, { error: "Window offline" });
+        if (
+          (action === "ack" || action === "resume") &&
+          req.method === "POST"
+        ) {
+          const data = await body(req);
+          // A delayed ACK may arrive after a newer resume request.
+          if (action === "resume" || data.received > c.ack)
+            acknowledge(c, data.received);
+          return json(res, 200, { ok: true, incoming: c.incoming });
+        }
         if (action === "events" && req.method === "GET") {
+          const received = Number(url.searchParams.get("after") || "0");
+          acknowledge(c, received);
           c.stream?.end();
           res.writeHead(200, {
             "content-type": "text/event-stream",
@@ -314,18 +372,27 @@ function createGateway({
           });
           res.write(": connected\n\n");
           c.stream = res;
+          for (const message of c.replay)
+            writeEvent(c, "message", message.payload, message.sequence);
+          writeEvent(c, "ready", {});
           req.on("close", () => {
             if (c.stream === res) c.stream = null;
           });
           return;
         }
         if (action === "message" && req.method === "POST") {
-          enqueue(w, {
-            type: "message",
-            clientId: id,
-            message: await body(req),
-          });
-          return json(res, 200, { ok: true });
+          const { sequence, message } = await body(req);
+          if (
+            !Number.isSafeInteger(sequence) ||
+            sequence < 1 ||
+            sequence > c.incoming + 1
+          )
+            return json(res, 409, { error: "Invalid message sequence" });
+          if (sequence === c.incoming + 1) {
+            enqueue(w, { type: "message", clientId: id, message });
+            c.incoming = sequence;
+          }
+          return json(res, 200, { ok: true, incoming: c.incoming });
         }
         if (action === "disconnect" && req.method === "POST") {
           closeClient(id);
@@ -396,10 +463,8 @@ function createGateway({
     for (const w of windows.values())
       if (Date.now() - w.lastSeen > 45000) removeWindow(w.id);
     for (const c of clients.values()) {
-      if (c.stream) {
-        c.lastSeen = Date.now();
-        c.stream.write(": heartbeat\n\n");
-      } else if (Date.now() - c.lastSeen > 20000) closeClient(c.id);
+      if (Date.now() - c.lastSeen > clientRetentionMs) closeClient(c.id);
+      else if (c.stream) writeEvent(c, "heartbeat", {});
     }
     if (windows.size) idleSince = Date.now();
     else if (Date.now() - idleSince > idleMs) server.close();
