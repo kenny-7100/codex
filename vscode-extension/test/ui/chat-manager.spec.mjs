@@ -107,6 +107,20 @@ test("mobile and desktop have one panel, no horizontal overflow and useful resul
     (await page.getByLabel("聊天搜索结果").boundingBox()).height,
   ).toBeGreaterThan(100);
   await expect(page.locator("main")).toHaveCount(1);
+  for (const width of [320, 390, 640]) {
+    await page.setViewportSize({ width, height: 740 });
+    const from = await page.getByLabel("开始时间").boundingBox();
+    const to = await page.getByLabel("结束时间").boundingBox();
+    expect(Math.abs(from.y - to.y)).toBeLessThan(1);
+    expect(from.x + from.width).toBeLessThanOrEqual(to.x);
+    const tags = await page.getByLabel("标签", { exact: true }).boundingBox();
+    const manage = await page.getByRole("button", { name: "管理标签", exact: true }).boundingBox();
+    expect(Math.abs(tags.y + tags.height - manage.y - manage.height)).toBeLessThan(1);
+    expect(tags.x + tags.width).toBeLessThanOrEqual(manage.x);
+    expect(manage.x + manage.width).toBeLessThanOrEqual(width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.setViewportSize({ width: 390, height: 740 });
   await page.screenshot({
     path: "reports/chat-manager-mobile.png",
     fullPage: true,
