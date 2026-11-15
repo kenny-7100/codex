@@ -249,6 +249,21 @@ test("mobile uses five-row pages, desktop restores ten; tag colors persist witho
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator("[data-result-id]")).toHaveCount(5);
   await expect(page.locator(".cm-page-info")).toHaveText("第 1 / 27 页 · 每页 5 条");
+  for (const width of [320, 390, 440, 640, 960]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const target of ["尾页", "首页"]) {
+      await page.getByRole("button", { name: target, exact: true }).click();
+      const layout = await page.locator(".cm-pagination").evaluate(el => {
+        const boxes = [...el.children].map(child => child.getBoundingClientRect());
+        const panel = el.closest(".cm-search-panel");
+        return { centers: boxes.map(r => r.y + r.height / 2), fits: el.scrollWidth <= el.clientWidth + 1 && panel.scrollWidth <= panel.clientWidth + 1 };
+      });
+      expect(Math.max(...layout.centers) - Math.min(...layout.centers)).toBeLessThan(2);
+      expect(layout.fits).toBe(true);
+    }
+    if (width === 390) await page.screenshot({ path: "reports/chat-manager-single-line-pagination.png" });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "下一页", exact: true }).click();
   await expect(page.locator(".cm-page-info")).toHaveText("第 2 / 27 页 · 每页 5 条");
   await expect(page.locator("[data-result-id]")).toHaveCount(5);
