@@ -165,8 +165,11 @@ try {
     viewport: { width: 1100, height: 900 },
   });
   page.setDefaultTimeout(20000);
-  const pageErrors=[];
-  page.on("pageerror", (e) => {pageErrors.push(e.message);console.log("PAGE ERROR", e.message);});
+  const pageErrors = [];
+  page.on("pageerror", (e) => {
+    pageErrors.push(e.message);
+    console.log("PAGE ERROR", e.message);
+  });
   page.on("console", (m) => {
     if (m.type() === "error") console.log("CONSOLE", m.text().slice(0, 800));
   });
@@ -188,19 +191,43 @@ try {
     const colors = await button.evaluate((el) => {
       const icon = el.querySelector("svg");
       if (!icon) throw Error("Composer action icon missing");
-      return { foreground: getComputedStyle(icon).color, background: getComputedStyle(el).backgroundColor };
+      return {
+        foreground: getComputedStyle(icon).color,
+        background: getComputedStyle(el).backgroundColor,
+      };
     });
-    assert.notEqual(colors.foreground, colors.background, "Action icon must contrast with button");
-    assert.notEqual(colors.foreground, "rgb(221, 221, 221)", "Icon must not inherit page text on light action button");
+    assert.notEqual(
+      colors.foreground,
+      colors.background,
+      "Action icon must contrast with button",
+    );
+    assert.notEqual(
+      colors.foreground,
+      "rgb(221, 221, 221)",
+      "Icon must not inherit page text on light action button",
+    );
   }
-  assert(await frame.evaluate(() => {
-    const rail = document.querySelector("._attached_1ugo6_36");
-    const composer = rail?.nextElementSibling?.querySelector("._ComposerLayoutRoot_73a71_2");
-    return rail && composer && composer.getBoundingClientRect().top - rail.getBoundingClientRect().bottom >= 7.5;
-  }), "Local mode rail must have a clear gap above the composer");
+  assert(
+    await frame.evaluate(() => {
+      const rail = document.querySelector("._attached_1ugo6_36");
+      const composer = rail?.nextElementSibling?.querySelector(
+        "._ComposerLayoutRoot_73a71_2",
+      );
+      return (
+        rail &&
+        composer &&
+        composer.getBoundingClientRect().top -
+          rail.getBoundingClientRect().bottom >=
+          7.5
+      );
+    }),
+    "Local mode rail must have a clear gap above the composer",
+  );
   let editor = frame.locator('[contenteditable="true"]').first();
   await editor.fill("Say hello for LAN acceptance");
-  await assertActionIcon(frame.getByRole("button", { name: "Send", exact: true }));
+  await assertActionIcon(
+    frame.getByRole("button", { name: "Send", exact: true }),
+  );
   await editor.press("Enter");
   await frame
     .getByText("LAN acceptance response.", { exact: true })
@@ -213,22 +240,48 @@ try {
   );
   await page.screenshot({ path: "reports/lan-chat.png" });
   console.log("CHAT PASSED");
-  const chatBeforeDiff = await frame.evaluate((id) => sessionStorage.getItem("jimao-route-" + id), ready.windowId);
+  const chatBeforeDiff = await frame.evaluate(
+    (id) => sessionStorage.getItem("jimao-route-" + id),
+    ready.windowId,
+  );
   for (const width of [1100, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    await frame.evaluate((route) => window.acquireVsCodeApi().postMessage({
-      conversationId: route.split("/")[2],
-      type: "show-diff", unifiedDiff: "diff --git a/test.txt b/test.txt\n--- a/test.txt\n+++ b/test.txt\n@@ -1 +1 @@\n-before\n+after\n", cwd: null,
-    }), chatBeforeDiff);
-    const backToChat = frame.getByRole("button", { name: "← 返回聊天", exact: true });
+    await frame.evaluate(
+      (route) =>
+        window.acquireVsCodeApi().postMessage({
+          conversationId: route.split("/")[2],
+          type: "show-diff",
+          unifiedDiff:
+            "diff --git a/test.txt b/test.txt\n--- a/test.txt\n+++ b/test.txt\n@@ -1 +1 @@\n-before\n+after\n",
+          cwd: null,
+        }),
+      chatBeforeDiff,
+    );
+    const backToChat = frame.getByRole("button", {
+      name: "← 返回聊天",
+      exact: true,
+    });
     await backToChat.waitFor();
-    assert((await frame.locator("body").innerText()).includes("test.txt"), "Diff content must render");
-    if (width === 390) await page.screenshot({ path: "reports/lan-diff-return-mobile.png" });
+    assert(
+      (await frame.locator("body").innerText()).includes("test.txt"),
+      "Diff content must render",
+    );
+    if (width === 390)
+      await page.screenshot({ path: "reports/lan-diff-return-mobile.png" });
     await backToChat.click();
     await page.frameLocator("#view").getByRole("textbox").waitFor();
     frame = await (await page.locator("#view").elementHandle()).contentFrame();
-    assert.equal(await frame.evaluate((id) => sessionStorage.getItem("jimao-route-" + id), ready.windowId), chatBeforeDiff);
-    await frame.getByText("LAN acceptance response.", { exact: true }).first().waitFor();
+    assert.equal(
+      await frame.evaluate(
+        (id) => sessionStorage.getItem("jimao-route-" + id),
+        ready.windowId,
+      ),
+      chatBeforeDiff,
+    );
+    await frame
+      .getByText("LAN acceptance response.", { exact: true })
+      .first()
+      .waitFor();
   }
   await page.setViewportSize({ width: 1100, height: 900 });
   editor = frame.locator('[contenteditable="true"]').first();
@@ -271,13 +324,27 @@ try {
   );
   await frame.getByRole("region", { name: "聊天搜索", exact: true }).waitFor();
   await frame.locator("[data-result-id]").first().waitFor();
-  assert.equal(await frame.getByRole("button", { name: /Archive chat|归档聊天/ }).count(), 0, "History list must omit archive actions");
+  assert.equal(
+    await frame.getByRole("button", { name: /Archive chat|归档聊天/ }).count(),
+    0,
+    "History list must omit archive actions",
+  );
   const hoveredRow = frame.locator(".cm-original-row > [role=button]").first();
   await hoveredRow.hover();
-  assert(await hoveredRow.locator("time").isVisible(), "History timestamp must remain visible on hover when no replacement actions exist");
+  assert(
+    await hoveredRow.locator("time").isVisible(),
+    "History timestamp must remain visible on hover when no replacement actions exist",
+  );
   await hoveredRow.focus();
-  assert(await hoveredRow.locator("time").isVisible(), "History timestamp must remain visible with keyboard focus");
-  assert.equal(await hoveredRow.evaluate(el => getComputedStyle(el).backgroundColor), "rgb(42, 45, 46)", "History hover must use the dark list highlight");
+  assert(
+    await hoveredRow.locator("time").isVisible(),
+    "History timestamp must remain visible with keyboard focus",
+  );
+  assert.equal(
+    await hoveredRow.evaluate((el) => getComputedStyle(el).backgroundColor),
+    "rgb(42, 45, 46)",
+    "History hover must use the dark list highlight",
+  );
   await page.screenshot({ path: "reports/lan-history-hover.png" });
   const threadId = await frame
     .locator("[data-result-id]")
@@ -316,6 +383,132 @@ try {
     .getByRole("button", { name: "关闭搜索面板", exact: true })
     .click();
   console.log("HISTORY TAGS RENAME PASSED");
+  await page.waitForURL(/\/c\/[A-Za-z0-9]{12}$/);
+  const sharedURL = page.url();
+  async function assertDirectLink(expectedWindow, fallback = false) {
+    const context = await browser.newContext({
+      viewport: { width: 1100, height: 900 },
+    });
+    await context.addInitScript(
+      ({ id }) => {
+        if (!sessionStorage.getItem("jimao-test-seeded")) {
+          sessionStorage.setItem("jimao-test-seeded", "true");
+          sessionStorage.setItem("jimao-window", "old-unrelated-window");
+          sessionStorage.setItem(
+            "jimao-route-" + id,
+            "/local/nonexistent-stale-chat",
+          );
+        }
+      },
+      { id: expectedWindow },
+    );
+    const direct = await context.newPage(),
+      connections = [];
+    direct.on("request", (req) => {
+      if (new URL(req.url()).pathname === "/connect")
+        connections.push(req.postDataJSON());
+    });
+    const before = requests.length;
+    await direct.goto(sharedURL);
+    const chat = direct.frameLocator("#view");
+    await chat.getByRole("textbox").waitFor({ timeout: 30000 });
+    const child = direct.frames().find((f) => f.url().includes("/frame/"));
+    assert.equal(
+      await child.locator('meta[name="initial-route"]').getAttribute("content"),
+      "/local/" + threadId,
+    );
+    await chat
+      .getByText("Say hello for LAN acceptance", { exact: true })
+      .first()
+      .waitFor();
+    assert.equal(await direct.locator("#windows").inputValue(), expectedWindow);
+    assert.deepEqual(
+      connections,
+      [{ code: sharedURL.split("/").at(-1) }],
+      "First connection must already resolve the shared conversation",
+    );
+    assert.equal(
+      requests.length,
+      before,
+      "Opening a shared link cannot send a model request",
+    );
+    if (fallback)
+      await direct.getByText("原窗口已关闭，已通过可用工作区打开").waitFor();
+    let promptValue;
+    direct.once("dialog", async (dialog) => {
+      promptValue = dialog.defaultValue();
+      await dialog.dismiss();
+    });
+    await direct
+      .getByRole("button", { name: "复制会话链接", exact: true })
+      .click();
+    if (promptValue !== undefined) assert.equal(promptValue, sharedURL);
+    else
+      await direct.waitForFunction(
+        () =>
+          document.querySelector("#status").textContent === "会话链接已复制",
+      );
+    for (const width of [320, 390, 1100]) {
+      await direct.setViewportSize({ width, height: 900 });
+      assert(
+        await direct.evaluate(() => {
+          const button = document
+            .querySelector("#share")
+            .getBoundingClientRect();
+          const selector = document
+            .querySelector("#windows")
+            .getBoundingClientRect();
+          const status = document
+            .querySelector("#status")
+            .getBoundingClientRect();
+          return (
+            document.documentElement.scrollWidth <= innerWidth &&
+            selector.right <= button.left &&
+            button.right <= status.left
+          );
+        }),
+        "Shared-link header must stay on one line without overlap",
+      );
+    }
+    await direct.screenshot({
+      path: fallback
+        ? "reports/lan-shared-fallback.png"
+        : "reports/lan-shared-direct.png",
+    });
+    await direct.reload();
+    await direct.frameLocator("#view").getByRole("textbox").waitFor();
+    assert.equal(direct.url(), sharedURL);
+    await direct
+      .frameLocator("#view")
+      .getByRole("button", { name: /^(Back|返回)$/ })
+      .click();
+    await direct.waitForURL((url) => url.pathname === "/");
+    await direct.goBack();
+    await direct
+      .frameLocator("#view")
+      .getByText("Say hello for LAN acceptance", { exact: true })
+      .first()
+      .waitFor();
+    assert.equal(direct.url(), sharedURL);
+    await direct.goForward();
+    await direct.waitForURL((url) => url.pathname === "/");
+    await direct
+      .frameLocator("#view")
+      .getByText("LAN renamed", { exact: true })
+      .first()
+      .waitFor();
+    await direct.goto(browserAddress + "/c/222222222222");
+    await direct.getByText("会话链接不存在或已失效", { exact: true }).waitFor();
+    assert.equal(await direct.locator("iframe#view").count(), 0);
+    await direct.getByRole("button", { name: "重试", exact: true }).click();
+    await direct.getByText("会话链接不存在或已失效", { exact: true }).waitFor();
+    await context.close();
+  }
+  await assertDirectLink(ready.windowId);
+  console.log(
+    "DIRECT LINK, STALE STORAGE PRIORITY, REFRESH, HISTORY AND INVALID LINK PASSED",
+  );
+
   nextTool = true;
   await editor.fill("Run confirmation test");
   await editor.press("Enter");
@@ -351,7 +544,9 @@ try {
     .getByRole("button", { name: /Stop|停止/ })
     .first()
     .waitFor({ timeout: 15000 });
-  await assertActionIcon(frame.getByRole("button", { name: /Stop|停止/ }).first());
+  await assertActionIcon(
+    frame.getByRole("button", { name: /Stop|停止/ }).first(),
+  );
   await page.screenshot({ path: "reports/lan-stop-icon.png" });
   // A transport outage must preserve the running turn and never resubmit it.
   for (
@@ -448,7 +643,10 @@ try {
       "--enable-proposed-api",
       "openai.chatgpt",
     ],
-    { env: { ...env, JIMAO_LAN_ACCEPTANCE: profileB, JIMAO_LAN_AUTO_JOIN: "1" }, stdio: "ignore" },
+    {
+      env: { ...env, JIMAO_LAN_ACCEPTANCE: profileB, JIMAO_LAN_AUTO_JOIN: "1" },
+      stdio: "ignore",
+    },
   );
   let readyB;
   for (let i = 0; !readyB; i++) {
@@ -486,6 +684,7 @@ try {
     await page.frameLocator("#view").getByRole("textbox").innerText(),
     "Unsent draft for B",
   );
+  await assertDirectLink(ready.windowId);
   await fs.writeFile(path.join(profile, "finish"), "");
   for (let i = 0; i < 100; i++) {
     const list = await fetch(`http://127.0.0.1:${lanPort}/windows`).then((r) =>
@@ -499,6 +698,8 @@ try {
   );
   assert.equal(list.length, 1);
   assert.equal(list[0].id, readyB.windowId);
+  await assertDirectLink(readyB.windowId, true);
+  console.log("SHARED LINK FALLBACK TO SECOND REAL HOST PASSED");
   const frameB = page
     .frames()
     .find((f) => f.url().includes("/frame/") && f !== frameA);
@@ -509,7 +710,9 @@ try {
     .first()
     .waitFor({ timeout: 30000 });
   const mobile = await browser.newContext({
-    viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
   });
   const mobilePage = await mobile.newPage();
   await mobilePage.goto(browserAddress);
@@ -517,42 +720,91 @@ try {
   const mobileInput = mobilePage.frameLocator("#view").getByRole("textbox");
   await mobileInput.waitFor();
   await mobileInput.tap();
-  assert(await mobileInput.evaluate((el) => parseFloat(getComputedStyle(el).fontSize) >= 16));
-  for (const surface of [mobilePage, mobilePage.frames().find((f) => f.url().includes("/frame/"))]) {
-    assert(await surface.evaluate(() => {
-      const viewport = document.querySelector('meta[name="viewport"]')?.content || "";
-      const gesture = new Event("gesturestart", { bubbles: true, cancelable: true });
-      document.dispatchEvent(gesture);
-      const touch = new Event("touchmove", { bubbles: true, cancelable: true });
-      Object.defineProperty(touch, "touches", { value: [{}, {}] });
-      document.dispatchEvent(touch);
-      const doubleTap = new MouseEvent("dblclick", { bubbles: true, cancelable: true });
-      document.dispatchEvent(doubleTap);
-      return viewport.includes("maximum-scale=1") && viewport.includes("user-scalable=no") &&
-        getComputedStyle(document.documentElement).touchAction === "pan-x pan-y" &&
-        gesture.defaultPrevented && touch.defaultPrevented && doubleTap.defaultPrevented;
-    }));
+  assert(
+    await mobileInput.evaluate(
+      (el) => parseFloat(getComputedStyle(el).fontSize) >= 16,
+    ),
+  );
+  for (const surface of [
+    mobilePage,
+    mobilePage.frames().find((f) => f.url().includes("/frame/")),
+  ]) {
+    assert(
+      await surface.evaluate(() => {
+        const viewport =
+          document.querySelector('meta[name="viewport"]')?.content || "";
+        const gesture = new Event("gesturestart", {
+          bubbles: true,
+          cancelable: true,
+        });
+        document.dispatchEvent(gesture);
+        const touch = new Event("touchmove", {
+          bubbles: true,
+          cancelable: true,
+        });
+        Object.defineProperty(touch, "touches", { value: [{}, {}] });
+        document.dispatchEvent(touch);
+        const doubleTap = new MouseEvent("dblclick", {
+          bubbles: true,
+          cancelable: true,
+        });
+        document.dispatchEvent(doubleTap);
+        return (
+          viewport.includes("maximum-scale=1") &&
+          viewport.includes("user-scalable=no") &&
+          getComputedStyle(document.documentElement).touchAction ===
+            "pan-x pan-y" &&
+          gesture.defaultPrevented &&
+          touch.defaultPrevented &&
+          doubleTap.defaultPrevented
+        );
+      }),
+    );
   }
   assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
-  await mobilePage.screenshot({ path: "reports/lan-mobile-fixed-viewport.png" });
-  await mobilePage.frameLocator("#view").getByText("LAN renamed", { exact: true }).first().click();
+  await mobilePage.screenshot({
+    path: "reports/lan-mobile-fixed-viewport.png",
+  });
+  await mobilePage
+    .frameLocator("#view")
+    .getByText("LAN renamed", { exact: true })
+    .first()
+    .click();
   // A restored initial-route used to send chatgpt.newCodexPanel to the desktop.
   // Exercise both widths after refresh; a fresh browser context misses that branch.
   for (const width of [1100, 390]) {
     await mobilePage.setViewportSize({ width, height: 844 });
     if (width === 390)
-      await mobilePage.frameLocator("#view").getByText("LAN renamed", { exact: true }).first().click();
-    const beforeReload = mobilePage.frames().find((f) => f.url().includes("/frame/"));
-    await beforeReload.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id)?.startsWith("/local/"), readyB.windowId);
+      await mobilePage
+        .frameLocator("#view")
+        .getByText("LAN renamed", { exact: true })
+        .first()
+        .click();
+    const beforeReload = mobilePage
+      .frames()
+      .find((f) => f.url().includes("/frame/"));
+    await beforeReload.waitForFunction(
+      (id) =>
+        sessionStorage.getItem("jimao-route-" + id)?.startsWith("/local/"),
+      readyB.windowId,
+    );
+    await mobilePage.waitForURL(/\/c\/[A-Za-z0-9]{12}$/);
     await mobilePage.reload();
     const restored = mobilePage.frameLocator("#view");
     await restored.getByRole("textbox").waitFor();
-    const restoredFrame = mobilePage.frames().find((f) => f.url().includes("/frame/"));
-    assert.match(await restoredFrame.locator('meta[name="initial-route"]').getAttribute("content"), /^\/local\//);
+    const restoredFrame = mobilePage
+      .frames()
+      .find((f) => f.url().includes("/frame/"));
+    assert.match(
+      await restoredFrame
+        .locator('meta[name="initial-route"]')
+        .getAttribute("content"),
+      /^\/local\//,
+    );
     await restoredFrame.evaluate(() => {
       window.__newChatDesktopCommands = [];
       const original = window.fetch;
-      window.fetch = function(url, options) {
+      window.fetch = function (url, options) {
         if (String(url).startsWith("/message/") && options?.body) {
           const message = JSON.parse(options.body);
           if (message.type === "open-vscode-command")
@@ -563,53 +815,133 @@ try {
     });
     const back = restored.getByRole("button", { name: /^(Back|返回)$/ });
     await back.waitFor();
-    if (width === 390) await mobilePage.screenshot({ path: "reports/lan-mobile-back-button.png" });
+    if (width === 390)
+      await mobilePage.screenshot({
+        path: "reports/lan-mobile-back-button.png",
+      });
     await back.tap();
-    await restoredFrame.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id) === "/", readyB.windowId);
+    await restoredFrame.waitForFunction(
+      (id) => sessionStorage.getItem("jimao-route-" + id) === "/",
+      readyB.windowId,
+    );
     await restored.getByText("LAN renamed", { exact: true }).first().waitFor();
     if (width === 1100) {
-      const homeRow = restored.locator(".cm-original-row").filter({ hasText: "LAN renamed" }).first();
+      const homeRow = restored
+        .locator(".cm-original-row")
+        .filter({ hasText: "LAN renamed" })
+        .first();
       await homeRow.hover();
-      assert(await homeRow.locator("time").isVisible(), "Home list timestamp must remain visible on hover");
+      assert(
+        await homeRow.locator("time").isVisible(),
+        "Home list timestamp must remain visible on hover",
+      );
     }
-    assert.equal(await back.count(), 0, "Home list must not show a return button");
-    if (width === 390) await mobilePage.screenshot({ path: "reports/lan-mobile-back-home.png" });
+    assert.equal(
+      await back.count(),
+      0,
+      "Home list must not show a return button",
+    );
+    if (width === 390)
+      await mobilePage.screenshot({ path: "reports/lan-mobile-back-home.png" });
     await restored.getByText("LAN renamed", { exact: true }).first().click();
-    await restoredFrame.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id)?.startsWith("/local/"), readyB.windowId);
-    await restored.getByRole("button", { name: /New chat|新建聊天|新聊天/ }).first().tap();
-    await restoredFrame.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id) === "/", readyB.windowId);
-    assert.deepEqual(await restoredFrame.evaluate(() => window.__newChatDesktopCommands), []);
+    await restoredFrame.waitForFunction(
+      (id) =>
+        sessionStorage.getItem("jimao-route-" + id)?.startsWith("/local/"),
+      readyB.windowId,
+    );
+    await restored
+      .getByRole("button", { name: /New chat|新建聊天|新聊天/ })
+      .first()
+      .tap();
+    await restoredFrame.waitForFunction(
+      (id) => sessionStorage.getItem("jimao-route-" + id) === "/",
+      readyB.windowId,
+    );
+    assert.deepEqual(
+      await restoredFrame.evaluate(() => window.__newChatDesktopCommands),
+      [],
+    );
   }
   await mobileInput.waitFor();
   await mobileInput.fill("New chat created from mobile");
-  await mobilePage.frameLocator("#view").getByRole("button", { name: "Send", exact: true }).tap();
-  await mobilePage.frameLocator("#view").getByText("LAN acceptance response.", { exact: true }).first().waitFor();
-  assert(await mobilePage.frameLocator("#view").getByText("New chat created from mobile", { exact: true }).first().isVisible());
-  const mobileFrame = mobilePage.frames().find((f) => f.url().includes("/frame/"));
+  await mobilePage
+    .frameLocator("#view")
+    .getByRole("button", { name: "Send", exact: true })
+    .tap();
+  await mobilePage
+    .frameLocator("#view")
+    .getByText("LAN acceptance response.", { exact: true })
+    .first()
+    .waitFor();
+  assert(
+    await mobilePage
+      .frameLocator("#view")
+      .getByText("New chat created from mobile", { exact: true })
+      .first()
+      .isVisible(),
+  );
+  const mobileFrame = mobilePage
+    .frames()
+    .find((f) => f.url().includes("/frame/"));
   await mobileInput.blur();
-  await mobileFrame.evaluate(() => window.dispatchEvent(new CustomEvent("open-recent-tasks-menu")));
-  const mobilePanel = mobileFrame.getByRole("region", { name: "聊天搜索", exact: true });
+  await mobileFrame.evaluate(() =>
+    window.dispatchEvent(new CustomEvent("open-recent-tasks-menu")),
+  );
+  const mobilePanel = mobileFrame.getByRole("region", {
+    name: "聊天搜索",
+    exact: true,
+  });
   await mobilePanel.waitFor();
-  assert.match(await mobilePanel.locator(".cm-page-info").getAttribute("aria-label"), /每页 5 条/);
-  assert(await mobileFrame.evaluate(() => !document.activeElement?.matches("input,textarea")), "Opening history must not summon mobile keyboard");
+  assert.match(
+    await mobilePanel.locator(".cm-page-info").getAttribute("aria-label"),
+    /每页 5 条/,
+  );
+  assert(
+    await mobileFrame.evaluate(
+      () => !document.activeElement?.matches("input,textarea"),
+    ),
+    "Opening history must not summon mobile keyboard",
+  );
   for (const height of [844, 430]) {
     await mobilePage.setViewportSize({ width: 390, height });
     await mobilePanel.getByLabel("聊天名称", { exact: true }).tap();
     await mobilePanel.getByLabel("聊天名称", { exact: true }).fill("LAN");
-    assert(await mobilePanel.evaluate((panel) => {
-      const rect = panel.getBoundingClientRect();
-      return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight &&
-        panel.scrollWidth <= panel.clientWidth + 1;
-    }), "History dialog must stay inside mobile viewport, including keyboard height");
+    assert(
+      await mobilePanel.evaluate((panel) => {
+        const rect = panel.getBoundingClientRect();
+        return (
+          rect.left >= 0 &&
+          rect.right <= innerWidth &&
+          rect.bottom <= innerHeight &&
+          panel.scrollWidth <= panel.clientWidth + 1
+        );
+      }),
+      "History dialog must stay inside mobile viewport, including keyboard height",
+    );
     assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
   }
   await mobilePage.screenshot({ path: "reports/lan-mobile-history.png" });
   await mobilePanel.getByRole("button", { name: "关闭搜索面板" }).click();
   await mobile.close();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForFunction(() => document.querySelector("#windows").selectedOptions[0].textContent.endsWith("workspace-b"));
-  assert((await page.locator("#windows").getAttribute("title")).includes(path.join(profileB, "workspace-b")), "Selector title retains full path");
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#windows")
+      .selectedOptions[0].textContent.endsWith("workspace-b"),
+  );
+  assert(
+    (await page.locator("#windows").getAttribute("title")).includes(
+      path.join(profileB, "workspace-b"),
+    ),
+    "Selector title retains full path",
+  );
 
+  await page.waitForFunction(
+    () =>
+      !/此会话来源|会话链接暂不可用/.test(
+        document.querySelector("#status").textContent,
+      ),
+  );
   await page.screenshot({ path: "reports/lan-mobile.png" });
   assert(
     await page.evaluate(
@@ -619,7 +951,7 @@ try {
   console.log(
     "TWO REAL HOSTS, WINDOW SWITCH, DRAFT ISOLATION, OWNER CLOSE AND MOBILE PASSED",
   );
-  assert.deepEqual(pageErrors,[],"Browser must not report unhandled errors");
+  assert.deepEqual(pageErrors, [], "Browser must not report unhandled errors");
   await fs.writeFile(
     "reports/lan-acceptance.json",
     JSON.stringify({
@@ -633,6 +965,12 @@ try {
         "reconnect during active sampling without resubmitting",
         "approval and tool execution",
         "two real VS Code hosts",
+        "12-character durable conversation URLs",
+        "first connection resolves host and initial conversation without homepage navigation",
+        "explicit URL overrides stale browser storage",
+        "shared-link refresh and browser Back/Forward",
+        "original host preference and fallback after owner closes",
+        "invalid link error and retry without opening another conversation",
         "window switch and drafts",
         "owner close preserves second window",
         "mobile layout and fixed viewport gestures/input focus",
@@ -651,9 +989,21 @@ try {
   console.error("ACCEPTANCE", error.message, "REQUESTS", requests.length);
   if (browser) {
     const p = browser.contexts()[0]?.pages()[0];
-    for (const extra of browser.contexts().flatMap((c) => c.pages()).filter((p) => p !== browser.contexts()[0]?.pages()[0])) {
-      console.log("EXTRA FAIL", await extra.frameLocator("#view").locator("body").innerText().catch(() => ""));
-      await extra.screenshot({ path: "reports/lan-mobile-new-chat-failed.png" });
+    for (const extra of browser
+      .contexts()
+      .flatMap((c) => c.pages())
+      .filter((p) => p !== browser.contexts()[0]?.pages()[0])) {
+      console.log(
+        "EXTRA FAIL",
+        await extra
+          .frameLocator("#view")
+          .locator("body")
+          .innerText()
+          .catch(() => ""),
+      );
+      await extra.screenshot({
+        path: "reports/lan-mobile-new-chat-failed.png",
+      });
     }
     console.log(
       "FAIL TEXT",

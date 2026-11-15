@@ -16,7 +16,9 @@ function register(vscode, context, controller) {
     endpoint,
     secret,
     polling,
-    generation = 0, disposed = false, transition = Promise.resolve();
+    generation = 0,
+    disposed = false,
+    transition = Promise.resolve();
   const storage = path.join(
       process.env.CODEX_HOME || path.join(os.homedir(), ".codex"),
       "jimao-lan",
@@ -50,7 +52,7 @@ function register(vscode, context, controller) {
       const h = await fetch(endpoint + "/health", {
         signal: AbortSignal.timeout(1000),
       }).then((r) => r.json());
-      if (h.service === "jimao-lan" && h.version === 2) {
+      if (h.service === "jimao-lan" && h.version === 3) {
         if (d.port !== port)
           throw Error(`共享入口已使用端口 ${d.port}，请使用相同端口`);
         return;
@@ -60,16 +62,20 @@ function register(vscode, context, controller) {
     }
     // A running old gateway must be stopped explicitly before upgrading.
     try {
-      const h = await fetch(endpoint + "/health", { signal: AbortSignal.timeout(500) }).then(r => r.json());
-      if (h.service === "jimao-lan" && h.version !== 2)
-        throw Error("请先关闭所有旧窗口的局域网访问，等待 30 秒后重新开启，以升级共享入口");
+      const h = await fetch(endpoint + "/health", {
+        signal: AbortSignal.timeout(500),
+      }).then((r) => r.json());
+      if (h.service === "jimao-lan" && h.version !== 3)
+        throw Error(
+          "请先关闭所有旧窗口的局域网访问，等待 30 秒后重新开启，以升级共享入口",
+        );
     } catch (error) {
       if (error.message.startsWith("请先关闭")) throw error;
     }
     // Copy the gateway out of the versioned extension install directory.
-    const runtime = path.join(storage, "runtime-v2");
+    const runtime = path.join(storage, "runtime-v3");
     await fs.mkdir(runtime, { recursive: true });
-    for (const file of ["server.cjs", "shell.html"])
+    for (const file of ["server.cjs", "shell.html", "links.cjs"])
       await fs.copyFile(path.join(__dirname, file), path.join(runtime, file));
     secret = crypto.randomBytes(32).toString("hex");
     endpoint = `http://127.0.0.1:${port}`;
@@ -110,7 +116,46 @@ function register(vscode, context, controller) {
   async function deliver(clientId, message) {
     return request("/internal/deliver", { windowId: id, clientId, message });
   }
-  async function createView(clientId) {
+  async function readThread(threadId) {
+    const connection = controller.codexMcpConnection;
+    const providerName = "jimao-lan-" + crypto.randomUUID();
+    return new Promise((resolve, reject) => {
+      let provider,
+        finished = false;
+      const timer = setTimeout(() => finish(Error("读取会话超时")), 10000);
+      function finish(error, result) {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        provider?.dispose();
+        if (error) reject(error);
+        else if (result?.thread?.id !== threadId)
+          reject(Error("无法读取目标会话"));
+        else resolve(result);
+      }
+      try {
+        provider = connection.registerProvider(providerName, {
+          onResult: (response) =>
+            finish(
+              response.error ? Error(response.error.message) : null,
+              response.result,
+            ),
+          onFatalError: () => finish(Error("会话引擎不可用")),
+        });
+        if (finished) {
+          provider.dispose();
+          return;
+        }
+        connection.sendRequest(providerName, "read", "thread/read", {
+          threadId,
+          includeTurns: false,
+        });
+      } catch (error) {
+        finish(error);
+      }
+    });
+  }
+  async function createView(clientId, initialRoute) {
     const received = new EventEmitter(),
       disposed = new EventEmitter(),
       picks = new Map();
@@ -149,7 +194,10 @@ function register(vscode, context, controller) {
       },
       async receive(message) {
         // Desktop commands target the sidebar; reply to the browser that clicked.
-        if (message.type === "open-vscode-command" && message.command === "chatgpt.newChat") {
+        if (
+          message.type === "open-vscode-command" &&
+          message.command === "chatgpt.newChat"
+        ) {
           await view.postMessage({ type: "new-chat" });
           return;
         }
@@ -223,11 +271,15 @@ function register(vscode, context, controller) {
       await fs.readFile(path.join(__dirname, "bridge.js"), "utf8")
     )
       .replace("__CLIENT_ID__", JSON.stringify(clientId))
-      .replace("__WINDOW_ID__", JSON.stringify(id));
+      .replace("__WINDOW_ID__", JSON.stringify(id))
+      .replace("__INITIAL_ROUTE__", JSON.stringify(initialRoute || null));
     // Browser-facing URLs must be relative: localhost refers to the phone itself.
     let html = view.html.replaceAll(endpoint, "");
     html = html.replace(/<meta\b[^>]*name=["']viewport["'][^>]*>/gi, "");
-    html = html.replace("<head>", '<head><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">');
+    html = html.replace(
+      "<head>",
+      '<head><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">',
+    );
     html = html.replace("<head>", "<head><script>" + bridge + "</script>");
     // Existing CSP is restricted to VS Code resource schemes; use same-origin HTTP resources.
     html = html.replace(
@@ -242,7 +294,22 @@ function register(vscode, context, controller) {
         const events = await request("/internal/poll?window=" + id);
         for (const e of events) {
           if (!running || epoch !== generation) break;
-          if (e.type === "connect") await createView(e.clientId);
+          if (e.type === "resolve-thread") {
+            let error;
+            try {
+              await readThread(e.threadId);
+            } catch (failure) {
+              error = failure.message;
+            }
+            await request("/internal/resolved", {
+              windowId: id,
+              requestId: e.requestId,
+              threadId: e.threadId,
+              ok: !error,
+              error,
+            });
+          } else if (e.type === "connect")
+            await createView(e.clientId, e.initialRoute);
           else if (e.type === "disconnect") views.get(e.clientId)?.dispose();
           else if (e.type === "message")
             await views
@@ -266,6 +333,8 @@ function register(vscode, context, controller) {
     await request("/internal/register", {
       id,
       pid: process.pid,
+      focused: vscode.window.state?.focused === true,
+      lastFocused,
       name: vscode.workspace.name || "未命名窗口",
       folders: (vscode.workspace.workspaceFolders || []).map(
         (f) => f.uri.fsPath,
@@ -293,19 +362,27 @@ function register(vscode, context, controller) {
     running = false;
     generation++;
     for (const view of [...views.values()]) view.dispose();
-    if (endpoint) await request("/internal/remove", { windowId: id }).catch(() => {});
+    if (endpoint)
+      await request("/internal/remove", { windowId: id }).catch(() => {});
   }
   async function synchronize() {
     if (disposed) return;
     try {
       const descriptor = JSON.parse(await fs.readFile(statePath, "utf8"));
       const target = `http://127.0.0.1:${descriptor.port}`;
-      const health = await fetch(target + "/health", { signal: AbortSignal.timeout(1000) }).then(r => r.json());
-      if (health.service !== "jimao-lan" || health.version !== 2 || !health.enabled) {
+      const health = await fetch(target + "/health", {
+        signal: AbortSignal.timeout(1000),
+      }).then((r) => r.json());
+      if (
+        health.service !== "jimao-lan" ||
+        health.version !== 3 ||
+        !health.enabled
+      ) {
         if (running) await detach();
         return;
       }
-      if (running && endpoint === target && secret === descriptor.secret) return;
+      if (running && endpoint === target && secret === descriptor.secret)
+        return;
       if (running) await detach();
       endpoint = target;
       secret = descriptor.secret;
@@ -320,7 +397,9 @@ function register(vscode, context, controller) {
     return serial(async () => {
       if (disposed) return [];
       if (running) return addresses();
-      const port = vscode.workspace.getConfiguration("chatgpt").get("lanPort", 8765);
+      const port = vscode.workspace
+        .getConfiguration("chatgpt")
+        .get("lanPort", 8765);
       await gateway(port);
       await request("/internal/access", { enabled: true });
       await enroll();
@@ -341,6 +420,15 @@ function register(vscode, context, controller) {
       await detach();
     });
   }
+  let lastFocused = vscode.window.state?.focused ? Date.now() : 0;
+  const focusListener = vscode.window.onDidChangeWindowState?.((state) => {
+    if (state.focused) lastFocused = Date.now();
+    if (running)
+      request("/internal/focus", {
+        windowId: id,
+        focused: state.focused,
+      }).catch(() => {});
+  });
   const discovery = setInterval(() => serial(synchronize), 2000);
   discovery.unref();
   serial(synchronize);
@@ -377,6 +465,7 @@ function register(vscode, context, controller) {
     dispose() {
       disposed = true;
       clearInterval(discovery);
+      focusListener?.dispose();
       serial(detach);
       commands.forEach((c) => c.dispose());
     },

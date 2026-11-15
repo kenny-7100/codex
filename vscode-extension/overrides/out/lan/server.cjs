@@ -4,17 +4,64 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { EventEmitter } = require("node:events");
-const VERSION = 2;
+const { createLinks, CODE, THREAD } = require("./links.cjs");
+const VERSION = 3;
 const MAX_BODY = 24 * 1024 * 1024;
 function createGateway({
   port = 8765,
   host = "0.0.0.0",
   secret = crypto.randomBytes(32).toString("hex"),
   idleMs = 30000,
+  linksFile = path.join(
+    require("node:os").tmpdir(),
+    "jimao-test-links-" + crypto.randomUUID() + ".json",
+  ),
+  resolveTimeoutMs = 15000,
 } = {}) {
   const windows = new Map(),
     clients = new Map();
-  let idleSince = Date.now(), enabled = false;
+  const links = createLinks(linksFile),
+    pending = new Map();
+  let idleSince = Date.now(),
+    enabled = false;
+  function verifyThread(win, threadId) {
+    if (typeof threadId !== "string" || !THREAD.test(threadId))
+      throw Object.assign(Error("会话标识无效"), { status: 400 });
+    const requestId = crypto.randomUUID();
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(
+        () => finish(Error("VS Code 未能及时读取会话，请重试")),
+        resolveTimeoutMs,
+      );
+      function finish(error) {
+        clearTimeout(timer);
+        pending.delete(requestId);
+        error ? reject(Object.assign(error, { status: 422 })) : resolve();
+      }
+      pending.set(requestId, { windowId: win.id, threadId, finish });
+      try {
+        enqueue(win, { type: "resolve-thread", requestId, threadId });
+      } catch (error) {
+        finish(error);
+      }
+    });
+  }
+  function chooseWindow(entry) {
+    const exact = windows.get(entry.windowId);
+    if (exact) return exact;
+    const ranked = [...windows.values()].sort(
+      (a, b) =>
+        Number(b.focused === true) - Number(a.focused === true) ||
+        (b.lastFocused || 0) - (a.lastFocused || 0) ||
+        b.lastSeen - a.lastSeen,
+    );
+    const key = (folders) => JSON.stringify([...folders].sort());
+    return (
+      (entry.folders.length &&
+        ranked.find((w) => key(w.folders) === key(entry.folders))) ||
+      ranked[0]
+    );
+  }
   const json = (res, status, data) => {
     res.writeHead(status, {
       "content-type": "application/json",
@@ -48,6 +95,8 @@ function createGateway({
   function removeWindow(id) {
     windows.get(id)?.wake.emit("queue");
     const existed = windows.delete(id);
+    for (const p of pending.values())
+      if (p.windowId === id) p.finish(Error("目标 VS Code 窗口已断开，请重试"));
     if (existed && !windows.size) enabled = false;
     for (const c of clients.values())
       if (c.windowId === id) {
@@ -58,8 +107,11 @@ function createGateway({
   function pruneHosts() {
     for (const w of windows.values()) {
       if (!Number.isInteger(w.pid)) continue;
-      try { process.kill(w.pid, 0); }
-      catch (error) { if (error.code === "ESRCH") removeWindow(w.id); }
+      try {
+        process.kill(w.pid, 0);
+      } catch (error) {
+        if (error.code === "ESRCH") removeWindow(w.id);
+      }
     }
   }
   async function body(req) {
@@ -96,8 +148,15 @@ function createGateway({
         return res.end();
       }
       if (url.pathname === "/health")
-        return json(res, 200, { service: "jimao-lan", version: VERSION, enabled });
-      if (req.method === "GET" && url.pathname === "/") {
+        return json(res, 200, {
+          service: "jimao-lan",
+          version: VERSION,
+          enabled,
+        });
+      if (
+        req.method === "GET" &&
+        (url.pathname === "/" || /^\/c\/[^/]+$/.test(url.pathname))
+      ) {
         res.writeHead(200, {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "no-store",
@@ -114,6 +173,37 @@ function createGateway({
             folders: w.folders,
           })),
         );
+      if (req.method === "POST" && url.pathname === "/internal/resolved") {
+        const data = await body(req),
+          p = pending.get(data.requestId);
+        if (p && p.windowId === data.windowId)
+          p.finish(
+            data.threadId === p.threadId && data.ok === true
+              ? null
+              : Error(data.error || "无法访问此会话"),
+          );
+        return json(res, 200, { ok: true });
+      }
+      if (req.method === "POST" && url.pathname === "/links") {
+        const { clientId, threadId } = await body(req),
+          c = clients.get(clientId),
+          w = c && windows.get(c.windowId);
+        if (!w) return json(res, 410, { error: "窗口已断开，请重试" });
+        await verifyThread(w, threadId);
+        if (windows.get(w.id) !== w)
+          return json(res, 410, { error: "窗口已断开，请重试" });
+        const code = await links.ensure(threadId, w);
+        return json(res, 200, { path: "/c/" + code });
+      }
+      if (req.method === "POST" && url.pathname === "/internal/focus") {
+        const data = await body(req),
+          w = windows.get(data.windowId);
+        if (w) {
+          w.focused = data.focused === true;
+          if (w.focused) w.lastFocused = Date.now();
+        }
+        return json(res, 200, { ok: true });
+      }
       if (req.method === "POST" && url.pathname === "/internal/access") {
         enabled = (await body(req)).enabled === true;
         idleSince = Date.now();
@@ -121,7 +211,8 @@ function createGateway({
         return json(res, 200, { enabled });
       }
       if (req.method === "POST" && url.pathname === "/internal/register") {
-        if (!enabled) return json(res, 409, { error: "LAN access is disabled" });
+        if (!enabled)
+          return json(res, 409, { error: "LAN access is disabled" });
         const data = await body(req);
         const existing = windows.get(data.id);
         if (!data.id || !data.root)
@@ -158,15 +249,51 @@ function createGateway({
         return json(res, 200, w.queue.splice(0));
       }
       if (req.method === "POST" && url.pathname === "/connect") {
-        const { windowId } = await body(req);
-        const w = windows.get(windowId);
-        if (!w) return json(res, 404, { error: "Window is offline" });
+        const { windowId, code } = await body(req);
+        let w, entry;
+        if (code !== undefined) {
+          entry = CODE.test(code) ? await links.get(code) : null;
+          if (!entry)
+            return json(res, 404, { error: "会话链接不存在或已失效" });
+          const tried = new Set();
+          while (true) {
+            w = chooseWindow(entry);
+            if (!w)
+              return json(res, 503, {
+                error: "没有可用的 VS Code 窗口，请打开并激活 Jimao 后重试",
+              });
+            if (tried.has(w.id))
+              return json(res, 410, { error: "目标窗口已断开，请重试" });
+            tried.add(w.id);
+            try {
+              await verifyThread(w, entry.threadId);
+            } catch (error) {
+              if (windows.has(w.id)) throw error;
+              else continue;
+            }
+            if (windows.has(w.id)) break;
+          }
+        } else w = windows.get(windowId);
+        if (!w) return json(res, 404, { error: "窗口已断开" });
         if (clients.size >= 64)
           return json(res, 503, { error: "Too many browser connections" });
         const id = crypto.randomUUID();
-        clients.set(id, { id, windowId, html: null, lastSeen: Date.now() });
-        enqueue(w, { type: "connect", clientId: id });
-        return json(res, 200, { id });
+        clients.set(id, {
+          id,
+          windowId: w.id,
+          html: null,
+          lastSeen: Date.now(),
+        });
+        enqueue(w, {
+          type: "connect",
+          clientId: id,
+          initialRoute: entry ? "/local/" + entry.threadId : "/",
+        });
+        return json(res, 200, {
+          id,
+          windowId: w.id,
+          fallback: !!entry && w.id !== entry.windowId,
+        });
       }
       const match = url.pathname.match(
         /^\/(events|message|frame|disconnect)\/([a-f0-9-]+)$/,
@@ -280,6 +407,7 @@ function createGateway({
   timer.unref();
   server.on("close", () => {
     clearInterval(timer);
+    for (const p of pending.values()) p.finish(Error("共享入口已关闭"));
     for (const c of clients.values()) c.stream?.end();
   });
   return {
@@ -304,7 +432,11 @@ if (require.main === module) {
   const port = Number(process.argv[2]),
     state = process.argv[3],
     secret = process.env.JIMAO_LAN_SECRET;
-  const gateway = createGateway({ port, secret });
+  const gateway = createGateway({
+    port,
+    secret,
+    linksFile: path.join(path.dirname(state), "conversation-links.json"),
+  });
   gateway
     .listen()
     .then(async () => {

@@ -46,8 +46,20 @@
       width: 100%;
       min-height: 0;
     }
-    header strong { flex-shrink: 0; white-space: nowrap; }
-    header select { flex: 1 1 0; max-width: none; white-space: nowrap; }
+    header strong {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    header select {
+      flex: 1 1 0;
+      max-width: none;
+      white-space: nowrap;
+    }
+    #share {
+      flex-shrink: 0;
+      white-space: nowrap;
+      font-size: 13px;
+    }
     #status {
       flex: 0 1 auto;
       min-width: 0;
@@ -60,6 +72,11 @@
       font-size: 12px;
       color: #aaa;
     }
+    @media (max-width: 640px) {
+      #status {
+        max-width: 15%;
+      }
+    }
     #empty {
       padding: 24px;
     }
@@ -71,24 +88,47 @@
     <strong>Jimao</strong
     ><select id="windows" aria-label="窗口 / 工作区">
       <option value="">选择 VS Code 窗口</option></select
+    ><button id="share" aria-label="复制会话链接" hidden>复制会话链接</button
     ><span id="status">正在连接…</span>
   </header>
-  <div id="empty">请在需要访问的 VS Code 窗口中开启 Jimao 局域网访问。</div>
+  <div id="empty">
+    <span id="explanation"
+      >请在需要访问的 VS Code 窗口中开启 Jimao 局域网访问。</span
+    >
+    <button id="retry" hidden>重试</button>
+    <a id="home" href="/" hidden>返回首页</a>
+  </div>
   <iframe id="view" title="Jimao 聊天" hidden></iframe>
   <script>
     // Keep scrolling, but suppress browser zoom gestures on mobile.
     for (const type of ["gesturestart", "gesturechange", "gestureend"])
-      document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
-    document.addEventListener("touchmove", (e) => {
-      if (e.touches.length > 1) e.preventDefault();
-    }, { passive: false });
+      document.addEventListener(type, (e) => e.preventDefault(), {
+        passive: false,
+      });
+    document.addEventListener(
+      "touchmove",
+      (e) => {
+        if (e.touches.length > 1) e.preventDefault();
+      },
+      { passive: false },
+    );
     document.addEventListener("dblclick", (e) => {
       if (matchMedia("(pointer: coarse)").matches) e.preventDefault();
     });
 
     const select = document.querySelector("select"),
       status = document.querySelector("#status"),
-      empty = document.querySelector("#empty");
+      empty = document.querySelector("#empty"),
+      explanation = document.querySelector("#explanation"),
+      share = document.querySelector("#share"),
+      retry = document.querySelector("#retry"),
+      home = document.querySelector("#home");
+    const compactHeader = matchMedia("(max-width: 640px)");
+    function fitShareLabel() {
+      share.textContent = compactHeader.matches ? "复制链接" : "复制会话链接";
+    }
+    compactHeader.addEventListener("change", fitShareLabel);
+    fitShareLabel();
     let frame = document.querySelector("iframe"),
       selected = "",
       generation = 0;
@@ -97,7 +137,13 @@
     function fitWindowLabels() {
       const style = getComputedStyle(select);
       measure.font = style.font;
-      const width = Math.max(24, select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 26);
+      const width = Math.max(
+        24,
+        select.clientWidth -
+          parseFloat(style.paddingLeft) -
+          parseFloat(style.paddingRight) -
+          26,
+      );
       for (const option of select.options) {
         const full = option.dataset.fullLabel || option.textContent;
         option.dataset.fullLabel = full;
@@ -106,62 +152,138 @@
         if (measure.measureText(full).width <= width) option.textContent = full;
         else {
           const chars = Array.from(full);
-          let low = 0, high = chars.length;
+          let low = 0,
+            high = chars.length;
           while (low < high) {
             const mid = Math.ceil((low + high) / 2);
-            if (measure.measureText("…" + chars.slice(-mid).join("")).width <= width) low = mid;
+            if (
+              measure.measureText("…" + chars.slice(-mid).join("")).width <=
+              width
+            )
+              low = mid;
             else high = mid - 1;
           }
           option.textContent = "…" + (low ? chars.slice(-low).join("") : "");
         }
       }
-      select.title = select.selectedOptions[0]?.dataset.fullLabel || "选择 VS Code 窗口";
+      select.title =
+        select.selectedOptions[0]?.dataset.fullLabel || "选择 VS Code 窗口";
     }
     new ResizeObserver(fitWindowLabels).observe(select);
 
-    async function switchWindow(id) {
+    let resolving = false,
+      initialized = false;
+    let routeRevision = 0;
+    const codeFromPath = () =>
+      location.pathname.startsWith("/c/") ? location.pathname.slice(3) : null;
+    function showError(message) {
+      frame.hidden = true;
+      empty.hidden = false;
+      explanation.textContent = message;
+      retry.hidden = home.hidden = false;
+      share.hidden = true;
+      status.textContent = "无法打开会话";
+    }
+    async function post(url, data) {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await r.json();
+      if (!r.ok) throw Error(result.error || "连接失败，请重试");
+      return result;
+    }
+    function setPath(path, replace = false) {
+      if (location.pathname !== path)
+        history[replace ? "replaceState" : "pushState"]({}, "", path);
+      share.hidden = !path.startsWith("/c/");
+    }
+    async function switchWindow(id, code = null) {
       const turn = ++generation;
+      ++routeRevision;
+      resolving = true;
       frame.hidden = true;
       frame.removeAttribute("id");
-      selected = id;
-      fitWindowLabels();
-      sessionStorage.setItem("jimao-window", id);
-      if (!id) {
-        empty.hidden = false;
+      share.hidden = true;
+      empty.hidden = false;
+      explanation.textContent = code ? "正在打开会话…" : "正在连接…";
+      retry.hidden = home.hidden = true;
+      if (!id && !code) {
+        selected = "";
+        resolving = false;
+        explanation.textContent = "请选择 VS Code 窗口。";
+        setPath("/");
         return;
       }
-      const cached = sessions.get(id);
+      const cached = !code && sessions.get(id);
       if (cached) {
+        selected = id;
+        select.value = id;
         frame = cached.frame;
         frame.id = "view";
         frame.hidden = false;
         empty.hidden = true;
         status.textContent = "已连接";
+        setPath(cached.path || "/");
+        resolving = false;
+        fitWindowLabels();
         return;
       }
       status.textContent = "正在连接…";
       try {
-        const r = await fetch("/connect", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ windowId: id }),
-        });
-        if (!r.ok) throw Error("窗口已断开");
-        const data = await r.json();
+        const data = await post("/connect", code ? { code } : { windowId: id });
         if (turn !== generation) {
-          fetch("/disconnect/" + data.id, { method: "POST" });
+          fetch("/disconnect/" + data.id, { method: "POST" }).catch(() => {});
           return;
         }
+        id = data.windowId;
+        // An explicit URL always creates a fresh initialized client, never navigates a cached page.
+        const previous = sessions.get(id);
+        if (previous) {
+          previous.frame.remove();
+          fetch("/disconnect/" + previous.client, { method: "POST" }).catch(
+            () => {},
+          );
+        }
+        selected = id;
+        select.value = id;
+        sessionStorage.setItem("jimao-window", id);
+        fitWindowLabels();
         frame = document.createElement("iframe");
         frame.title = "Jimao 聊天";
         frame.id = "view";
         document.body.append(frame);
-        sessions.set(id, { client: data.id, frame });
+        const path = code ? "/c/" + code : "/";
+        sessions.set(id, {
+          client: data.id,
+          frame,
+          path,
+          fallback: data.fallback,
+        });
+        if (!code) setPath("/");
+        share.hidden = !code;
         frame.src = "/frame/" + data.id;
         empty.hidden = true;
       } catch (e) {
-        status.textContent = e.message;
+        if (turn === generation) showError(e.message);
+      } finally {
+        if (turn === generation) resolving = false;
       }
+    }
+    async function openAddress() {
+      const code = codeFromPath();
+      if (code !== null) return switchWindow("", code);
+      // Browser Back to / means home, not the previously cached conversation.
+      for (const session of sessions.values()) {
+        session.frame.remove();
+        fetch("/disconnect/" + session.client, { method: "POST" }).catch(
+          () => {},
+        );
+      }
+      sessions.clear();
+      if (selected) sessionStorage.setItem("jimao-route-" + selected, "/");
+      await switchWindow(select.value || selected);
     }
     async function refresh() {
       try {
@@ -185,37 +307,126 @@
             session.frame.remove();
             sessions.delete(id);
           }
-        if (selected && !list.some((w) => w.id === selected)) {
-          status.textContent = "所选窗口已断开";
-          empty.hidden = false;
-          empty.textContent = "窗口已断开，请重新选择。";
-        } else if (!selected) {
-          status.textContent = list.length + " 个窗口在线";
-          if (select.value) switchWindow(select.value);
+        if (!initialized) {
+          initialized = true;
+          if (codeFromPath() !== null) await openAddress();
+          else if (select.value) await switchWindow(select.value);
+          else status.textContent = list.length + " 个窗口在线";
+        } else if (
+          selected &&
+          !list.some((w) => w.id === selected) &&
+          !resolving
+        ) {
+          selected = "";
+          if (codeFromPath() !== null) await openAddress();
+          else showError("窗口已断开，请重新选择。");
         }
       } catch {
         status.textContent = "服务已断开，正在重连…";
       }
     }
-    select.onchange = () => switchWindow(select.value);
-    window.addEventListener("message", (e) => {
+    select.onchange = () => {
+      setPath("/");
+      switchWindow(select.value);
+    };
+    retry.onclick = () =>
+      codeFromPath() !== null ? openAddress() : switchWindow(select.value);
+    window.addEventListener("popstate", openAddress);
+    share.onclick = async () => {
+      const url = location.origin + location.pathname;
+      try {
+        if (!navigator.clipboard?.writeText) throw Error();
+        await navigator.clipboard.writeText(url);
+        status.textContent = "会话链接已复制";
+      } catch {
+        window.prompt("复制会话链接", url);
+      }
+    };
+    window.addEventListener("message", async (e) => {
+      if (e.origin !== location.origin) return;
+      const id = e.data?.windowId,
+        session = sessions.get(id);
+      if (e.data?.type === "jimao-route") {
+        if (
+          !session ||
+          e.source !== session.frame.contentWindow ||
+          e.data.clientId !== session.client
+        )
+          return;
+        const route = e.data.route;
+        if (id !== selected) return;
+        const revision = ++routeRevision,
+          turn = generation;
+        if (route === "/") {
+          session.path = "/";
+          setPath("/");
+          return;
+        }
+        const target = new URL(route, location.origin);
+        const match = /^\/local\/([a-zA-Z0-9_-]{1,128})$/.exec(target.pathname);
+        if (
+          !match ||
+          ![null, "local"].includes(target.searchParams.get("hostId"))
+        ) {
+          session.path = "/";
+          setPath("/");
+          status.textContent = "此会话来源暂不支持分享链接";
+          return;
+        }
+        share.hidden = true;
+        // The route can be published just before a new thread is durably saved.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const data = await post("/links", {
+              clientId: session.client,
+              threadId: match[1],
+            });
+            if (
+              revision !== routeRevision ||
+              turn !== generation ||
+              sessions.get(id) !== session
+            )
+              return;
+            session.path = data.path;
+            setPath(data.path);
+            if (/此会话来源|会话链接暂不可用/.test(status.textContent))
+              status.textContent = session.fallback
+                ? "原窗口已关闭，已通过可用工作区打开"
+                : "已连接";
+            return;
+          } catch (error) {
+            if (revision !== routeRevision || turn !== generation) return;
+            if (attempt === 2) {
+              share.hidden = true;
+              status.textContent = "会话链接暂不可用：" + error.message;
+            } else await new Promise((r) => setTimeout(r, 500));
+          }
+        }
+        return;
+      }
       if (e.data?.type === "jimao-reconnect") {
-        const id = e.data.windowId,
-          session = sessions.get(id);
         if (!session || e.source !== session.frame.contentWindow) return;
         sessions.delete(id);
         session.frame.remove();
         fetch("/disconnect/" + session.client, { method: "POST" }).catch(
           () => {},
         );
-        if (selected === id) switchWindow(id);
+        if (selected === id && !resolving) {
+          const code = codeFromPath();
+          await switchWindow(id, code);
+        }
         return;
       }
       if (
         e.source === frame.contentWindow &&
         e.data?.type === "jimao-connection"
-      )
-        status.textContent = e.data.status;
+      ) {
+        const current = sessions.get(selected);
+        status.textContent =
+          current?.fallback && e.data.status === "已连接"
+            ? "原窗口已关闭，已通过可用工作区打开"
+            : e.data.status;
+      }
     });
     window.addEventListener("pagehide", () => {
       for (const s of sessions.values())

@@ -1,20 +1,28 @@
 // Injected before the original Webview entry. Keep its host protocol unchanged.
 (() => {
   const id = __CLIENT_ID__,
-    windowId = __WINDOW_ID__;
+    windowId = __WINDOW_ID__,
+    initialRoute = __INITIAL_ROUTE__;
   window.__jimaoLan = true;
-    // Keep scrolling, but suppress browser zoom gestures on mobile.
-    for (const type of ["gesturestart", "gesturechange", "gestureend"])
-      document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
-    document.addEventListener("touchmove", (e) => {
-      if (e.touches.length > 1) e.preventDefault();
-    }, { passive: false });
-    document.addEventListener("dblclick", (e) => {
-      if (matchMedia("(pointer: coarse)").matches) e.preventDefault();
+  // Keep scrolling, but suppress browser zoom gestures on mobile.
+  for (const type of ["gesturestart", "gesturechange", "gestureend"])
+    document.addEventListener(type, (e) => e.preventDefault(), {
+      passive: false,
     });
+  document.addEventListener(
+    "touchmove",
+    (e) => {
+      if (e.touches.length > 1) e.preventDefault();
+    },
+    { passive: false },
+  );
+  document.addEventListener("dblclick", (e) => {
+    if (matchMedia("(pointer: coarse)").matches) e.preventDefault();
+  });
 
   const routeKey = "jimao-route-" + windowId;
-  let route = sessionStorage.getItem(routeKey);
+  let route = initialRoute || sessionStorage.getItem(routeKey);
+  if (initialRoute) sessionStorage.setItem(routeKey, initialRoute);
   // A diff requires transient content, so stale diff routes return to the chat.
   if (/^\/diff(?:[/?#]|$)/.test(String(route))) {
     route = sessionStorage.getItem(routeKey + "-chat") || "/";
@@ -22,8 +30,11 @@
   }
   window.__jimaoReturnToChat = () => {
     const chat = sessionStorage.getItem(routeKey + "-chat") || "/";
-    sessionStorage.setItem(routeKey, /^\/diff(?:[/?#]|$)/.test(chat) ? "/" : chat);
-    location.reload();
+    sessionStorage.setItem(
+      routeKey,
+      /^\/diff(?:[/?#]|$)/.test(chat) ? "/" : chat,
+    );
+    parent.postMessage({ type: "jimao-reconnect", windowId }, location.origin);
   };
   if (route && !document.querySelector('meta[name="initial-route"]')) {
     const meta = document.createElement("meta");
@@ -33,8 +44,13 @@
   }
   window.addEventListener("jimao-route", (e) => {
     sessionStorage.setItem(routeKey, e.detail);
-    if (e.detail === "/" || String(e.detail).startsWith("/local/"))
+    if (e.detail === "/" || String(e.detail).startsWith("/local/")) {
       sessionStorage.setItem(routeKey + "-chat", e.detail);
+      parent.postMessage(
+        { type: "jimao-route", windowId, clientId: id, route: e.detail },
+        location.origin,
+      );
+    }
   });
 
   if (!crypto.randomUUID)
@@ -131,8 +147,7 @@
   };
   events.onerror = recover;
   events.addEventListener("offline", () => {
-    events.close();
-    status("窗口已断开");
+    recover();
   });
   events.addEventListener("message", (e) => {
     if (recovering) return;

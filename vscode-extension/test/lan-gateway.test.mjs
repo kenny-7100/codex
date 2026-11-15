@@ -25,7 +25,14 @@ test("gateway isolates windows and clients, survives owner disconnect, and restr
     return { status: r.status, data: await r.json() };
   };
   try {
-    await fetch(base + "/internal/access", { method: "POST", headers: { authorization: `Bearer ${g.secret}`, "content-type": "application/json" }, body: JSON.stringify({ enabled: true }) });
+    await fetch(base + "/internal/access", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${g.secret}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ enabled: true }),
+    });
     assert.equal(
       (
         await req(
@@ -104,7 +111,14 @@ test("streamed messages stay with their originating window and disallowed origin
     });
   const controller = new AbortController();
   try {
-    await fetch(base + "/internal/access", { method: "POST", headers: { authorization: `Bearer ${gateway.secret}`, "content-type": "application/json" }, body: JSON.stringify({ enabled: true }) });
+    await fetch(base + "/internal/access", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${gateway.secret}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ enabled: true }),
+    });
     await send("/internal/register", {
       id: "aaaa",
       root: process.cwd(),
@@ -168,56 +182,105 @@ test("activated hosts join globally, stop together, and do not reopen after last
   const address = await gateway.listen();
   const base = `http://127.0.0.1:${address.port}`;
   await fs.mkdir(path.join(root, "jimao-lan"));
-  await fs.writeFile(path.join(root, "jimao-lan/gateway.json"), JSON.stringify({ port: address.port, secret: gateway.secret, version: 2 }));
-  const { register } = createRequire(import.meta.url)("../overrides/out/lan/host.cjs");
+  await fs.writeFile(
+    path.join(root, "jimao-lan/gateway.json"),
+    JSON.stringify({ port: address.port, secret: gateway.secret, version: 3 }),
+  );
+  const { register } = createRequire(import.meta.url)(
+    "../overrides/out/lan/host.cjs",
+  );
   const hosts = [];
   function host(name) {
     const context = { subscriptions: [], extensionUri: { fsPath: root } };
     const commands = new Map();
-    const api = register({
-      workspace: { name, workspaceFolders: [], getConfiguration: () => ({ get: () => address.port }) },
-      commands: { registerCommand: (name, fn) => { commands.set(name, fn); return { dispose() {} }; } },
-      env: { clipboard: { async writeText() {} } },
-      window: { showInformationMessage() {}, showErrorMessage() {} },
-    }, context, { broadcastToAllViews() {} });
-    const result = { api, commands, dispose: () => context.subscriptions.forEach(d => d.dispose()) };
+    const api = register(
+      {
+        workspace: {
+          name,
+          workspaceFolders: [],
+          getConfiguration: () => ({ get: () => address.port }),
+        },
+        commands: {
+          registerCommand: (name, fn) => {
+            commands.set(name, fn);
+            return { dispose() {} };
+          },
+        },
+        env: { clipboard: { async writeText() {} } },
+        window: { showInformationMessage() {}, showErrorMessage() {} },
+      },
+      context,
+      { broadcastToAllViews() {} },
+    );
+    const result = {
+      api,
+      commands,
+      dispose: () => context.subscriptions.forEach((d) => d.dispose()),
+    };
     hosts.push(result);
     return result;
   }
   async function until(check) {
     for (let i = 0; i < 80; i++) {
       if (await check()) return;
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 100));
     }
     throw Error("Global access state did not converge");
   }
   try {
-    const a = host("A"), b = host("B");
+    const a = host("A"),
+      b = host("B");
     assert.equal(gateway.windows.size, 0);
-    await fetch(base + "/internal/access", { method: "POST", headers: { authorization: `Bearer ${gateway.secret}`, "content-type": "application/json" }, body: JSON.stringify({ enabled: true }) });
-    await fetch(base + "/internal/remove", { method: "POST", headers: { authorization: `Bearer ${gateway.secret}`, "content-type": "application/json" }, body: JSON.stringify({ windowId: "already-removed" }) });
-    assert.equal((await fetch(base + "/health").then(r => r.json())).enabled, true, "Stale window cleanup must not cancel a new enable");
+    await fetch(base + "/internal/access", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${gateway.secret}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ enabled: true }),
+    });
+    await fetch(base + "/internal/remove", {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${gateway.secret}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ windowId: "already-removed" }),
+    });
+    assert.equal(
+      (await fetch(base + "/health").then((r) => r.json())).enabled,
+      true,
+      "Stale window cleanup must not cancel a new enable",
+    );
     await a.api.start();
     await until(() => gateway.windows.size === 2);
     const c = host("C");
     await until(() => gateway.windows.size === 3);
     await b.api.stop();
     await until(() => gateway.windows.size === 0);
-    await new Promise(r => setTimeout(r, 2300));
-    assert.equal(gateway.windows.size, 0, "Polling must not re-enable globally disabled access");
+    await new Promise((r) => setTimeout(r, 2300));
+    assert.equal(
+      gateway.windows.size,
+      0,
+      "Polling must not re-enable globally disabled access",
+    );
     await c.api.start();
     await until(() => gateway.windows.size === 3);
     a.dispose();
     await until(() => gateway.windows.size === 2);
-    b.dispose(); c.dispose();
+    b.dispose();
+    c.dispose();
     await until(() => gateway.windows.size === 0);
-    assert.equal((await fetch(base + "/health").then(r => r.json())).enabled, false);
+    assert.equal(
+      (await fetch(base + "/health").then((r) => r.json())).enabled,
+      false,
+    );
     host("new session");
-    await new Promise(r => setTimeout(r, 2300));
+    await new Promise((r) => setTimeout(r, 2300));
     assert.equal(gateway.windows.size, 0, "A new session must stay disabled");
   } finally {
-    hosts.forEach(h => h.dispose());
-    await new Promise(r => setTimeout(r, 100));
+    hosts.forEach((h) => h.dispose());
+    await new Promise((r) => setTimeout(r, 100));
     await gateway.close();
     if (previous === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = previous;
