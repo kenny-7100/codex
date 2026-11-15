@@ -2276,9 +2276,10 @@ impl ThreadRequestProcessor {
                 "ephemeral threads do not support thread/revert",
             ));
         }
-        if !matches!(config_snapshot.history_mode, ThreadHistoryMode::Paginated) {
+        let migrate_legacy = !matches!(config_snapshot.history_mode, ThreadHistoryMode::Paginated);
+        if migrate_legacy && !self.thread_store.as_any().is::<LocalThreadStore>() {
             return Err(invalid_request(
-                "thread/revert only supports paginated threads",
+                "thread/revert requires paginated history or a local legacy store",
             ));
         }
         let mut config = thread.config().await.as_ref().clone();
@@ -2415,15 +2416,46 @@ impl ThreadRequestProcessor {
             .cancel_requests_for_thread(thread_id, /*error*/ None)
             .await;
 
-        let revert_result = self
-            .thread_store
-            .revert_thread(codex_thread_store::RevertThreadParams {
-                thread_id,
-                before_turn_id,
-                multi_agent_version: thread.multi_agent_version(),
-            })
-            .await
-            .map_err(|err| thread_store_mutation_error("revert", err));
+        let revert_result = async {
+            if migrate_legacy {
+                // Migrate only the requested, fully drained thread. The store's
+                // existing journal, writer locks and atomic publication preserve
+                // the original rollout and thread identity on failure.
+                let store = self
+                    .thread_store
+                    .as_any()
+                    .downcast_ref::<LocalThreadStore>()
+                    .ok_or_else(|| invalid_request("legacy revert requires a local store"))?;
+                let report = store
+                    .migrate_rollouts(codex_thread_store::RolloutMigrationOptions {
+                        mode: codex_thread_store::RolloutMigrationMode::Apply,
+                        thread_ids: vec![thread_id],
+                        ..Default::default()
+                    })
+                    .await
+                    .map_err(|err| thread_store_mutation_error("migrate before revert", err))?;
+                if !report.outcomes.iter().any(|outcome| {
+                    matches!(
+                        outcome.status,
+                        codex_thread_store::RolloutMigrationStatus::Migrated
+                            | codex_thread_store::RolloutMigrationStatus::AlreadyPaginated
+                    )
+                }) {
+                    return Err(internal_error(
+                        "legacy history could not be migrated; no turns were reverted",
+                    ));
+                }
+            }
+            self.thread_store
+                .revert_thread(codex_thread_store::RevertThreadParams {
+                    thread_id,
+                    before_turn_id,
+                    multi_agent_version: thread.multi_agent_version(),
+                })
+                .await
+                .map_err(|err| thread_store_mutation_error("revert", err))
+        }
+        .await;
         // Receipt lookup or update errors cannot prevent reload or misreport a committed revert.
         // A concurrent mark wins over this cleanup, even while the thread was being truncated.
         if revert_result.is_ok()

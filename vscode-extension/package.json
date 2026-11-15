@@ -18,7 +18,8 @@
     "check-imports": "node scripts/check-imports.mjs",
     "test:customization": "node scripts/customization-test.mjs",
     "test:ui": "playwright test",
-    "test:lan": "node test/lan-acceptance.mjs"
+    "test:lan": "node test/lan-acceptance.mjs",
+    "test:protocol": "python3 test/engine/protocol-acceptance.py build/extension/bin/macos-aarch64/codex"
   },
   "devDependencies": {
     "@babel/parser": "7.28.5",

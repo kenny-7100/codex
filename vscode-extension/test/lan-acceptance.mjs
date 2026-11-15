@@ -4,6 +4,7 @@ import path from "node:path";
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { chromium } from "@playwright/test";
+import { protocolAcceptance } from './protocol-acceptance.mjs';
 const root = process.cwd(),
   pause = (ms) => new Promise((r) => setTimeout(r, ms));
 const profile = await fs.mkdtemp("/Volumes/kenny/codex-build/tmp/jimao-lan-");
@@ -240,6 +241,7 @@ try {
   );
   await page.screenshot({ path: "reports/lan-chat.png" });
   console.log("CHAT PASSED");
+  await protocolAcceptance(browser, browserAddress, ready.windowId, requests);
   // Rendering the first response can precede replacement of the optimistic
   // client route. Diff return must exercise a persisted conversation ID.
   await frame.waitForFunction((id) => {
@@ -986,6 +988,7 @@ try {
     );
     for (let i = 0; i < 12; i++) {
       const result = await manager.nativeRequest("thread/start", {
+        historyMode: "paginated",
         ephemeral: false,
         approvalPolicy: "never",
         sandbox: "read-only",
@@ -994,6 +997,18 @@ try {
         threadId: result.thread.id,
         input: [{ type: "text", text: "Home viewport fixture " + i }],
       });
+      // Admission precedes durable history and projection indexing. An
+      // unindexed new rollout temporarily reports list_turns as unsupported.
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const turns = await manager.nativeRequest("thread/turns/list", { threadId: result.thread.id, limit: 1, sortDirection: "desc", itemsView: "summary" });
+          if (turns.data[0]?.status === "completed") break;
+        } catch (error) {
+          if (!/list_turns is not supported yet/.test(error.message)) throw error;
+        }
+        if (attempt > 300) throw Error("Home fixture turn did not complete and index");
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       await manager.nativeRequest("thread/name/set", {
         threadId: result.thread.id,
         name: "Home viewport fixture " + i,

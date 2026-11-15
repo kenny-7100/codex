@@ -418,8 +418,12 @@ async fn thread_revert_preserves_fork_cutoff_after_cold_resume() -> Result<()> {
     Ok(())
 }
 
+#[test_case::test_case(ThreadHistoryMode::Paginated; "paginated")]
+#[test_case::test_case(ThreadHistoryMode::Legacy; "legacy_migration")]
 #[tokio::test]
-async fn thread_revert_replaces_paginated_history_before_turn() -> Result<()> {
+async fn thread_revert_replaces_paginated_history_before_turn(
+    history_mode: ThreadHistoryMode,
+) -> Result<()> {
     let server = responses::start_mock_server().await;
     let response_mock =
         responses::mount_sse_sequence(&server, vec![responses::sse_completed("done"); 4]).await;
@@ -436,7 +440,7 @@ async fn thread_revert_replaces_paginated_history_before_turn() -> Result<()> {
 
     let ThreadStartResponse { thread, .. } = mcp
         .start_thread(ThreadStartParams {
-            history_mode: Some(ThreadHistoryMode::Paginated),
+            history_mode: Some(history_mode),
             service_tier: Some(Some("priority".to_string())),
             personality: Some(Personality::Friendly),
             ..Default::default()
@@ -609,8 +613,12 @@ async fn thread_revert_replaces_paginated_history_before_turn() -> Result<()> {
     Ok(())
 }
 
+#[test_case::test_case(ThreadHistoryMode::Paginated; "paginated")]
+#[test_case::test_case(ThreadHistoryMode::Legacy; "legacy_migration")]
 #[tokio::test]
-async fn thread_revert_interrupts_active_turn_and_keeps_thread_loaded() -> Result<()> {
+async fn thread_revert_interrupts_active_turn_and_keeps_thread_loaded(
+    history_mode: ThreadHistoryMode,
+) -> Result<()> {
     let home = TempDir::new()?;
     let server = create_mock_responses_server_sequence(vec![
         create_final_assistant_message_sse_response("first")?,
@@ -627,7 +635,7 @@ async fn thread_revert_interrupts_active_turn_and_keeps_thread_loaded() -> Resul
 
     let ThreadStartResponse { thread, .. } = mcp
         .start_thread(ThreadStartParams {
-            history_mode: Some(ThreadHistoryMode::Paginated),
+            history_mode: Some(history_mode),
             ..Default::default()
         })
         .await?;
@@ -749,7 +757,9 @@ async fn turn_ids_from_cursor(
 
 async fn initialize_experimental(mcp: &mut TestAppServer) -> Result<()> {
     let initialized = timeout(
-        DEFAULT_READ_TIMEOUT,
+        // Match TestAppServer::build_initialized: cold subprocess startup can
+        // exceed the ordinary per-request deadline on development builds.
+        std::time::Duration::from_secs(60),
         mcp.initialize_with_capabilities(
             ClientInfo {
                 name: "test-client".to_string(),

@@ -95,33 +95,62 @@ sh vscode-extension/scripts/engine.sh validate
 恢复官方引擎时移开本机描述文件并清除 CODEXX_ENGINE，重新构建打包。
 只关闭持续重试可使用插件设置，无需替换二进制。
 
-## 已定位的分支聊天兼容问题（2026-11-16）
+## 分支、编辑与旧历史协议兼容（2026-11-16）
 
-适用：官方前端 `26.51111.21308` 与上述 `0.0.0` 定制引擎组合。
-用户报告从对话分支到新聊天时出现“聊天已创建，但设置未能完成”，错误为
-`unknown variant thread/rollback`。本次只完成定位，尚未修改功能代码或重新打包。
+适用：官方前端 `26.51111.21308` 与本分支 `0.0.0` 定制引擎组合。
+用户报告从较早轮次分支时出现“聊天已创建，但设置未能完成”，错误为
+`unknown variant thread/rollback`。根因和修复如下。
 
-- 前端 `src/webview/assets/app-initial-050fbd442c4f.js` 的 `ihe` 在
-  `beforeTargetTurn=false` 时，仅当历史为 `paginated`，或引擎版本不是 `0.0.0`
-  且不低于 `0.143.0-alpha.32`，才直接用 `thread/fork` 的 `lastTurnId` 截断。
-  `legacy` 历史配合 `0.0.0` 会进入旧路径：先 fork 全部历史，再用
-  `thread/rollback { threadId, numTurns }` 删除目标轮次之后的内容。
-- 后一步失败被包装为 `synchronization.status=failed`，不会撤销已创建的新聊天。
-  因而报错的新聊天不能视为已正确截断到所选轮次。
-- 隔离临时 CODEX_HOME 的原生协议探测确认：参考包引擎报告
-  `0.169.0-alpha.11.1`，定制引擎报告 `0.0.0`；两者都拒绝 `thread/rollback`，
-  两者都接受 `thread/fork` 方法并进入会话查找。探测只使用不存在的会话 ID，
-  没有操作用户聊天或调用模型。官方原件无执行权限，探测使用临时可执行副本，未修改原件。
-- 提取实际 `ihe` 函数，以模拟客户端和相同的两轮 `legacy` 历史运行，确认官方版本
-  只发送带 `lastTurnId` 的 fork；`0.0.0` 先发送无截断参数的 fork，再发 rollback，
-  并在后者拒绝时返回同步失败。该验证不是实际 VS Code 点击验收；尚未读取报错会话的历史模式。
-- 不能简单把 `thread/rollback` 改名为 `thread/revert`：后者参数是 `beforeTurnId`，
-  返回分页游标且 `thread.turns` 为空，响应处理也不同。当前 Rust 定义见
-  `codex-rs/app-server-protocol/src/protocol/v2/thread.rs`。
+### 已验证根因
 
-修复应使分支路径依据已确认的能力选择定制引擎支持的原生截断 fork，并回归旧聊天历史；
-不要仅伪造一个官方版本号来整体开启未经验证的前端能力。前端编辑消息等位置也保留 rollback
-旧路径，但本次没有复现这些入口的故障，不能据此宣称它们均已损坏或已兼容。
+- 参考包引擎报告 `0.169.0-alpha.11.1`，定制引擎报告 `0.0.0`；隔离原生探测确认
+  两者都不支持 `thread/rollback`，都支持原生按轮次截断的 fork。
+- 前端 `app-initial-050fbd442c4f.js` 的 `ihe` 在 legacy 历史配合 `0.0.0` 时，
+  先 fork 全部历史，再调用已移除的 rollback；第二步失败不会撤销已创建的新聊天。
+  先前报错生成的聊天不能视为已经正确截断，本次不自动改写这些已有分支。
+- 分页历史支持函数 `xTt`、分页分支菜单判断 `Jwt` 和实际 fork 的 `nve` 检查，
+  也单独排除了 `0.0.0`；离线实验配置又默认关闭分页历史。
+  编辑消息与缓冲轮次重试因此仍可能选择 rollback。共享能力表 `Gy` 已将开发版本
+  视为支持这些原生能力，独立版本判断与它不一致。
+- 旧历史另有真实后端限制：`thread/revert` 原先只允许 paginated，会话重启也不会
+  默认转换 legacy，因为原生后台迁移开关默认关闭。
+
+### 实现与边界
+
+构建钩子 [`protocol-compat.mjs`](../../vscode-extension/scripts/protocol-compat.mjs)
+修正具体历史/分支判断，保留真实引擎版本；开发引擎的普通新聊天使用分页历史，
+分支直接发送 `lastTurnId` 或 `beforeTurnId`。保留旧引擎兼容路径，不把所有版本门槛
+统一改成一个伪造的官方版本。可读与原始压缩源码均须精确匹配，重复或缺失钩子拒绝构建。
+
+Rust `thread_revert_response` 对本地 legacy 历史支持按需迁移：先完整关闭并排空当前
+会话、保留运行配置和订阅，调用已有迁移实现仅转换该 thread ID，再按 `beforeTurnId`
+撤回并重载同一会话。复用迁移日志、写锁与原子发布机制，不启动全库迁移，也不撤回文件改动。
+无效目标的原生验收确认历史保留；迁移不成功不会执行后续撤回。临时会话仍拒绝撤回。
+
+前端编辑与缓冲重试仅在装配了声明支持该能力的定制引擎时，允许 legacy 走原生 revert，
+并接纳响应中的 paginated 模式、路径和分页游标。装配清单的 `legacyThreadRevert: true`
+要求本机描述文件同时固定匹配的 SHA-256；不能给未验证的旧二进制直接添加该标记。
+`custom-engine.mjs` 将能力标记写入包内清单，最终用户不依赖外置开发路径。
+
+字面量 RPC 审计对照了三个主要前端模块和当前 Rust 方法表。发现的本地废弃请求是
+rollback 的三个调用点，分别覆盖历史分支、编辑和缓冲重试；本次均有回归。
+`thread/stop` 位于独立 durable/cloud 路径，常规本地停止使用 `turn/interrupt`；
+保留其现有回退。部分 `0.0.0` 特例控制时间线、搜索及更新提示，不等同于协议不兼容，
+未据此批量开启所有能力。审计不证明全部云端、远程环境和懒加载功能均已验收。
+
+### 复现与验收入口
+
+- `npm test`：提取实际发布函数，覆盖 legacy/paginated 分支、菜单、两种截断边界、
+  编辑、缓冲重试、迁移模式接纳、旧/未知版本和压缩源码构建钩子。
+- `npm run test:protocol`：使用 build 中实际内置引擎、临时 CODEX_HOME 与本机模型模拟服务，
+  检查 legacy/paginated 的两种分支边界、原会话保留、后续模型上下文、无效目标和撤回重发。
+- `npm run test:lan`：双真实 VS Code 宿主、浏览器和内置引擎；新增实际点击较早回复的
+  “Branch in new chat”、分支内编辑，以及从首页打开已有 legacy 聊天并编辑的验收。
+- Rust `thread_revert` 集成回归加入 legacy 参数，沿用已有配置恢复、会话保留和通知断言。
+
+验收创建模拟历史时，`turn/start` 返回只表示已接收请求，不保证历史已写盘；
+应等待 `turn/completed` 或历史中对应轮次完成，再改名或断言持久化内容。
+局域网首页测试的直接 RPC 夹具显式使用分页历史，与当前产品创建策略一致。
 
 ## 验收入口
 

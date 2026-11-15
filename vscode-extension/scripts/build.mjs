@@ -6,6 +6,7 @@ import { hostSourceMap } from './source-map.mjs';
 import { installCustomEngine } from './custom-engine.mjs';
 import { applyBranding } from './branding.mjs';
 import { applyStartup } from './startup.mjs';
+import { applyProtocolCompatibility } from './protocol-compat.mjs';
 
 const manifest = await json(path.join(root, 'recovery-manifest.json'));
 if (manifest.failures.length) throw new Error('Recovery contains failures. Repair them before building.');
@@ -76,6 +77,7 @@ try {
   }
 } catch (e) { if (e.code !== 'ENOENT') throw e; }
 changes.push(...await applyStartup(target));
+changes.push(...await applyProtocolCompatibility(target, customEngine));
 changes.push(...await applyBranding(root, target));
 await writeJSON(path.join(root, 'reports/build.json'), { mode: debug ? 'debug' : readable ? 'readable' : 'exact-if-unchanged', hostAstEqual: hostEqual, sourceFilesChecked: checked, customEngine, changedFiles: changes });
 console.log(`Built ${target}; ${changes.length} authored payload changes; host AST baseline equal: ${hostEqual}.`);

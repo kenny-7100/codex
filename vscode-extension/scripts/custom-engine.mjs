@@ -59,6 +59,8 @@ export async function installCustomEngine(root, target) {
     version,
     platform: "darwin-arm64",
     persistentProviderRetries: true,
+    legacyThreadRevert:
+      config?.legacyThreadRevert === true && config?.sha256 === sha256,
     sourceRevision: config?.sourceRevision ?? null,
     sourceDiffSha256: config?.sourceDiffSha256 ?? null,
   };
