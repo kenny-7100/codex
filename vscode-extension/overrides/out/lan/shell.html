@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <meta charset="utf-8" /><meta
     name="viewport"
-    content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no"
+    content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"
   /><title>Jimao</title>
   <style>
     html,
@@ -10,11 +10,21 @@
       touch-action: pan-x pan-y;
       margin: 0;
       height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
       background: #181818;
       color: #ddd;
       font: 14px system-ui;
     }
     body {
+      position: fixed;
+      top: var(--jimao-viewport-top, 0px);
+      left: var(--jimao-viewport-left, 0px);
+      width: var(--jimao-viewport-width, 100%);
+      height: var(--jimao-viewport-height, 100dvh);
+      box-sizing: border-box;
+      padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+        env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
       display: flex;
       flex-direction: column;
     }
@@ -45,6 +55,11 @@
       flex: 1;
       width: 100%;
       min-height: 0;
+      display: block;
+      overscroll-behavior: none;
+    }
+    iframe[hidden] {
+      display: none;
     }
     header strong {
       flex-shrink: 0;
@@ -78,6 +93,10 @@
       }
     }
     #empty {
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+      overflow-wrap: anywhere;
       padding: 24px;
     }
     strong {
@@ -100,6 +119,39 @@
   </div>
   <iframe id="view" title="Jimao 聊天" hidden></iframe>
   <script>
+    // Only the outer shell follows the visual viewport. Its iframe inherits the
+    // resulting size, so keyboard height and safe-area padding are applied once.
+    let viewportFrame;
+    function updateViewport() {
+      cancelAnimationFrame(viewportFrame);
+      viewportFrame = requestAnimationFrame(() => {
+        const viewport = window.visualViewport;
+        if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
+        const root = document.documentElement.style;
+        root.setProperty(
+          "--jimao-viewport-height",
+          `${viewport?.height || innerHeight}px`,
+        );
+        root.setProperty(
+          "--jimao-viewport-width",
+          `${viewport?.width || innerWidth}px`,
+        );
+        root.setProperty(
+          "--jimao-viewport-top",
+          `${viewport?.offsetTop || 0}px`,
+        );
+        root.setProperty(
+          "--jimao-viewport-left",
+          `${viewport?.offsetLeft || 0}px`,
+        );
+      });
+    }
+    window.visualViewport?.addEventListener("resize", updateViewport);
+    window.visualViewport?.addEventListener("scroll", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    window.addEventListener("pageshow", updateViewport);
+    updateViewport();
+
     // Keep scrolling, but suppress browser zoom gestures on mobile.
     for (const type of ["gesturestart", "gesturechange", "gestureend"])
       document.addEventListener(type, (e) => e.preventDefault(), {

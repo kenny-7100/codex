@@ -248,4 +248,15 @@
   style.textContent =
     ":root{color-scheme:dark;--vscode-foreground:#ddd;--vscode-editor-background:#181818;--vscode-sideBar-background:#181818;--vscode-input-background:#242424;--vscode-input-foreground:#ddd;--vscode-dropdown-background:#242424;--vscode-dropdown-foreground:#ddd;--vscode-button-foreground:#181818;--vscode-button-background:#ddd;--vscode-list-hoverBackground:#2a2d2e;--vscode-list-hoverForeground:#ddd;--vscode-list-activeSelectionBackground:#37373d;--vscode-list-activeSelectionForeground:#fff;--vscode-list-inactiveSelectionBackground:#303034;--vscode-list-inactiveSelectionForeground:#ddd;--vscode-list-focusBackground:#303034;--vscode-list-focusForeground:#ddd;--vscode-toolbar-hoverBackground:#343434;--vscode-toolbar-activeBackground:#404040;--vscode-focusBorder:#409cff;--vscode-font-family:system-ui;--vscode-font-size:13px}._attached_1ugo6_36{padding-block:0!important;margin-top:calc(var(--composer-rail-below)*8px)!important;margin-bottom:calc(var(--composer-rail-above)*8px)!important;border-radius:16px}html,body{touch-action:pan-x pan-y}body{background:#181818;color:#ddd}@media(pointer:coarse){input,textarea,select,[contenteditable=true],[role=textbox]{font-size:16px!important}}";
   document.head.append(style);
+  // The iframe is sized by the outer visual viewport; do not subtract keyboard
+  // height a second time here. Portals remain free to position inside this box.
+  const layout = document.createElement("style");
+  layout.textContent = `
+    html, body { margin: 0 !important; width: 100%; height: 100%;
+      min-height: 0; overflow: hidden !important; overscroll-behavior: none; }
+    body { position: fixed; inset: 0; }
+    #root { height: 100%; max-height: 100%; min-height: 0; overflow: hidden; }
+    body * { overscroll-behavior-x: contain; overscroll-behavior-y: contain; }
+  `;
+  document.head.append(layout);
 })();

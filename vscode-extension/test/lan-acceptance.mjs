@@ -761,6 +761,23 @@ try {
       }),
     );
   }
+  for (const surface of [
+    mobilePage,
+    mobilePage.frames().find((f) => f.url().includes("/frame/")),
+  ]) {
+    assert(
+      await surface.evaluate(() =>
+        [document.documentElement, document.body].every((el) => {
+          const style = getComputedStyle(el);
+          return (
+            style.overflowY === "hidden" && style.overscrollBehaviorY === "none"
+          );
+        }),
+      ),
+      "Both LAN documents must isolate scrolling from the browser viewport",
+    );
+    assert.equal(await surface.evaluate(() => scrollY), 0);
+  }
   assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
   await mobilePage.screenshot({
     path: "reports/lan-mobile-fixed-viewport.png",
@@ -904,6 +921,11 @@ try {
   );
   for (const height of [844, 430]) {
     await mobilePage.setViewportSize({ width: 390, height });
+    await mobilePage.waitForFunction(
+      (expected) =>
+        Math.abs(document.body.getBoundingClientRect().height - expected) < 1,
+      height,
+    );
     await mobilePanel.getByLabel("聊天名称", { exact: true }).tap();
     await mobilePanel.getByLabel("聊天名称", { exact: true }).fill("LAN");
     assert(
@@ -917,6 +939,15 @@ try {
         );
       }),
       "History dialog must stay inside mobile viewport, including keyboard height",
+    );
+    assert.equal(await mobilePage.evaluate(() => scrollY), 0);
+    assert.equal(await mobileFrame.evaluate(() => scrollY), 0);
+    const composerBounds = await mobileFrame
+      .locator("[data-codex-composer=true]")
+      .boundingBox();
+    assert(
+      composerBounds.y + composerBounds.height <= height + 1,
+      "Composer stays inside resized visible viewport",
     );
     assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
   }
