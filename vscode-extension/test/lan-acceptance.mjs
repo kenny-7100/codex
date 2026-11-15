@@ -513,11 +513,35 @@ try {
   assert.equal(await mobilePage.evaluate(() => visualViewport.scale), 1);
   await mobilePage.screenshot({ path: "reports/lan-mobile-fixed-viewport.png" });
   await mobilePage.frameLocator("#view").getByText("LAN renamed", { exact: true }).first().click();
-  const newChatButton = mobilePage.frameLocator("#view").getByRole("button", { name: /New chat|新建聊天|新聊天/ }).first();
-  const originalMobileRoute = mobilePage.frames().find((f) => f.url().includes("/frame/"));
-  const originalMobilePath = await originalMobileRoute.evaluate((id) => sessionStorage.getItem("jimao-route-" + id), readyB.windowId);
-  await newChatButton.tap();
-  await originalMobileRoute.waitForFunction(({ id, oldPath }) => sessionStorage.getItem("jimao-route-" + id) !== oldPath, { id: readyB.windowId, oldPath: originalMobilePath });
+  // A restored initial-route used to send chatgpt.newCodexPanel to the desktop.
+  // Exercise both widths after refresh; a fresh browser context misses that branch.
+  for (const width of [1100, 390]) {
+    await mobilePage.setViewportSize({ width, height: 844 });
+    if (width === 390)
+      await mobilePage.frameLocator("#view").getByText("LAN renamed", { exact: true }).first().click();
+    const beforeReload = mobilePage.frames().find((f) => f.url().includes("/frame/"));
+    await beforeReload.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id)?.startsWith("/local/"), readyB.windowId);
+    await mobilePage.reload();
+    const restored = mobilePage.frameLocator("#view");
+    await restored.getByRole("textbox").waitFor();
+    const restoredFrame = mobilePage.frames().find((f) => f.url().includes("/frame/"));
+    assert.match(await restoredFrame.locator('meta[name="initial-route"]').getAttribute("content"), /^\/local\//);
+    await restoredFrame.evaluate(() => {
+      window.__newChatDesktopCommands = [];
+      const original = window.fetch;
+      window.fetch = function(url, options) {
+        if (String(url).startsWith("/message/") && options?.body) {
+          const message = JSON.parse(options.body);
+          if (message.type === "open-vscode-command")
+            window.__newChatDesktopCommands.push(message.command);
+        }
+        return original.apply(this, arguments);
+      };
+    });
+    await restored.getByRole("button", { name: /New chat|新建聊天|新聊天/ }).first().tap();
+    await restoredFrame.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id) === "/", readyB.windowId);
+    assert.deepEqual(await restoredFrame.evaluate(() => window.__newChatDesktopCommands), []);
+  }
   await mobileInput.waitFor();
   await mobileInput.fill("New chat created from mobile");
   await mobilePage.frameLocator("#view").getByRole("button", { name: "Send", exact: true }).tap();

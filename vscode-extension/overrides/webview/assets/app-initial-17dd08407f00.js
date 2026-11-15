@@ -91169,7 +91169,8 @@ function YV(e, t) {
         ? m.location.state?.focusComposerNonce
         : Date.now(),
     g = { ...d, ...(n === void 0 ? {} : { project: UV(n) }), focusComposerNonce: h },
-    _ = !!gg,
+    // Restored LAN routes stay in this browser, rather than opening a VS Code panel.
+    _ = !!gg && !globalThis.__jimaoLan,
     v = Hf(),
     y = { replace: o, state: g },
     b = _ || v ? null : e.get(em).prepareNavigation(`/`, y);
