@@ -539,6 +539,9 @@ try {
   await mobilePanel.getByRole("button", { name: "关闭搜索面板" }).click();
   await mobile.close();
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(() => document.querySelector("#windows").selectedOptions[0].textContent.endsWith("workspace-b"));
+  assert((await page.locator("#windows").getAttribute("title")).includes(path.join(profileB, "workspace-b")), "Selector title retains full path");
+
   await page.screenshot({ path: "reports/lan-mobile.png" });
   assert(
     await page.evaluate(
