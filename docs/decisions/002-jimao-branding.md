@@ -31,6 +31,12 @@
 
 隔离测试如果显式设置空 CODEX_HOME，就会预期显示登录页，不能据此判断正式插件的数据兼容性；测试窗口须提前说明并在结束时关闭。
 
+## VS Code 扩展列表与 Marketplace 展示
+
+2026-11-15 核实本机 VS Code 1.146.0：扩展列表模型的 `iconUrl` 优先顺序为 `galleryIconUrl → resourceExtensionIconUrl → localIconUrl → defaultIconUrl`；`displayName` 也优先使用 gallery 信息。证据为本机应用 `out/vs/workbench/workbench.desktop.main.js` 中对应 getter。已安装清单的名称为 Jimao、图标为 `resources/jimao.png`，身份仍为 `openai.chatgpt`；商店信息可覆盖本地列表的名称与图标显示，这不表示安装包照片未替换。
+
+用户明确选择：如果商店展示与原插件 ID 关联，则保留该展示，以用户数据兼容为优先。继续保留原扩展身份，不为更改商店图标修改 publisher/name，也不修改 VS Code 本体或拦截商店请求。本地包内图片替换本身不改变扩展存储身份；不承诺联网取得 Marketplace 信息后的列表仍显示本地品牌。
+
 ## 后续约束
 
 官方更新可能覆盖此同身份定制版本；当前决定不自动更改用户日常 VS Code 的自动更新设置。
