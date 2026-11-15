@@ -9,6 +9,65 @@ const encode = (_k, v) =>
 const revive = (_k, v) =>
   v && v.__jimaoBytes ? new Uint8Array(v.__jimaoBytes) : v;
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+// Prefer ordinary LAN interfaces; VPN and virtual adapter addresses are poor share targets.
+function lanAddresses(port, interfaces = os.networkInterfaces()) {
+  const candidates = [];
+  for (const [name, entries] of Object.entries(interfaces)) {
+    if (
+      /^(?:lo\d*|utun\d*|tun\d*|tap\d*|wg\d*|tailscale.*|zt.*|bridge.*|docker.*|veth.*|vmnet.*|vboxnet.*|virbr.*|awdl.*|llw.*|ipsec.*|ppp.*)$/i.test(
+        name,
+      )
+    )
+      continue;
+    for (const entry of entries || []) {
+      if (entry.internal || !["IPv4", 4].includes(entry.family)) continue;
+      const parts = entry.address.split(".").map(Number),
+        [a, b] = parts;
+      if (
+        parts.length !== 4 ||
+        parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255) ||
+        a === 0 ||
+        a === 127 ||
+        a >= 224 ||
+        (a === 169 && b === 254) ||
+        (a === 198 && (b === 18 || b === 19)) ||
+        (a === 100 && b >= 64 && b <= 127)
+      )
+        continue;
+      const privateAddress =
+        a === 10 ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168);
+      const ordinaryInterface =
+        /^(?:en\d+|eth\d+|wlan\d+|wlp.*|enp.*|wi-?fi|ethernet)(?:$|[ -])/i.test(
+          name,
+        );
+      candidates.push({
+        url: `http://${entry.address}:${port}`,
+        rank: (privateAddress ? 0 : 2) + (ordinaryInterface ? 0 : 1),
+      });
+    }
+  }
+  candidates.sort((a, b) => a.rank - b.rank);
+  return [...new Set(candidates.map((c) => c.url)), `http://localhost:${port}`];
+}
+async function promptForAddress(vscode, urls) {
+  const address = urls[0];
+  if (!address) return;
+  const localOnly = new URL(address).hostname === "localhost";
+  const action = await vscode.window.showInformationMessage(
+    "Jimao 局域网访问已开启，是否打开？",
+    {
+      modal: true,
+      detail: `地址：${address}${localOnly ? "\n仅本机可访问，未找到合适的局域网地址。" : ""}`,
+    },
+    "打开浏览器",
+    "复制地址",
+  );
+  if (action === "打开浏览器")
+    await vscode.env.openExternal(vscode.Uri.parse(address));
+  else if (action === "复制地址") await vscode.env.clipboard.writeText(address);
+}
 function register(vscode, context, controller) {
   const id = crypto.randomUUID(),
     views = new Map();
@@ -343,14 +402,7 @@ function register(vscode, context, controller) {
     });
   }
   function addresses() {
-    const port = new URL(endpoint).port;
-    return [
-      `http://localhost:${port}`,
-      ...Object.values(os.networkInterfaces())
-        .flat()
-        .filter((n) => n.family === "IPv4" && !n.internal)
-        .map((n) => `http://${n.address}:${port}`),
-    ];
+    return lanAddresses(new URL(endpoint).port);
   }
   // Serialize commands and discovery so disable cannot race a late enrollment.
   function serial(action) {
@@ -436,11 +488,9 @@ function register(vscode, context, controller) {
     vscode.commands.registerCommand("chatgpt.startLanAccess", async () => {
       try {
         const urls = await start();
-        await vscode.env.clipboard.writeText(
-          urls.find((u) => !u.includes("localhost")) || urls[0],
-        );
-        vscode.window.showInformationMessage(
-          `Jimao 局域网访问已全局开启，已激活窗口将自动加入，地址已复制：${urls.join("  ")}`,
+        // Keep command completion independent of the user's dialog choice.
+        promptForAddress(vscode, urls).catch((e) =>
+          vscode.window.showErrorMessage(e.message),
         );
         return { windowId: id, urls };
       } catch (e) {
@@ -455,9 +505,7 @@ function register(vscode, context, controller) {
           "请先开启 Jimao 局域网访问",
         );
       const urls = addresses();
-      await vscode.env.clipboard.writeText(
-        urls.find((u) => !u.includes("localhost")) || urls[0],
-      );
+      await vscode.env.clipboard.writeText(urls[0]);
       return urls;
     }),
   ];
@@ -473,4 +521,4 @@ function register(vscode, context, controller) {
   context.subscriptions.push(disposable);
   return { start, stop, views };
 }
-module.exports = { register };
+module.exports = { register, lanAddresses, promptForAddress };
