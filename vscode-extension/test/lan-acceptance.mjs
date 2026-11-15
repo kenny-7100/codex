@@ -246,6 +246,10 @@ try {
   );
   await frame.getByRole("region", { name: "聊天搜索", exact: true }).waitFor();
   await frame.locator("[data-result-id]").first().waitFor();
+  const hoveredRow = frame.locator(".cm-original-row > [role=button]").first();
+  await hoveredRow.hover();
+  assert.equal(await hoveredRow.evaluate(el => getComputedStyle(el).backgroundColor), "rgb(42, 45, 46)", "History hover must use the dark list highlight");
+  await page.screenshot({ path: "reports/lan-history-hover.png" });
   const threadId = await frame
     .locator("[data-result-id]")
     .first()
