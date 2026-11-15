@@ -50891,7 +50891,7 @@ function qA(e) {
     t[29] !== E || t[30] !== D || t[31] !== O || t[32] !== k
       ? ((A = (0, JA.jsxs)(`div`, {
           role: `presentation`,
-          className: E,
+          className: f === `blossom` ? `${E} jimao-loading-avatar` : E,
           onClick: D,
           children: [O, k],
         })),

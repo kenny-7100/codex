@@ -240,6 +240,12 @@ try {
   );
   await page.screenshot({ path: "reports/lan-chat.png" });
   console.log("CHAT PASSED");
+  // Rendering the first response can precede replacement of the optimistic
+  // client route. Diff return must exercise a persisted conversation ID.
+  await frame.waitForFunction((id) => {
+    const route = sessionStorage.getItem("jimao-route-" + id);
+    return route?.startsWith("/local/") && !route.includes("client-new-thread:");
+  }, ready.windowId);
   const chatBeforeDiff = await frame.evaluate(
     (id) => sessionStorage.getItem("jimao-route-" + id),
     ready.windowId,

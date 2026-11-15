@@ -66,7 +66,20 @@ export function brandJavaScript(code, { locale = false, iconData = null, display
 export function brandStartupHTML(html, iconData) {
   return html.replace('<title>ChatGPT</title>', '<title>Jimao</title>')
     .replace('<div class="startup-loader__logo"></div>', `<img class="startup-loader__logo" src="${iconData}" alt="Jimao" />`)
+    .replace('<div id="root">', '<div id="root"></div><div id="jimao-startup">')
+    .replace('</body>', '<script src="./assets/jimao-startup.js"></script></body>')
     .replace('</style>', `
+#jimao-startup { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+.startup-loader { position: absolute; inset: 0; }
+.jimao-loading-avatar { position: fixed !important; inset: 0 !important; }
+.jimao-loading-avatar > div { animation: none !important; opacity: 1 !important; }
+.jimao-loading-avatar ._Overlay_1qkcq_48 { display: none; }
+.jimao-loading-avatar ._Root_1qkcq_11 { transform-origin: 50% 75%; animation: jimao-avatar-wiggle 1.8s ease-in-out infinite; }
+body:has(#jimao-startup) .jimao-loading-avatar { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .jimao-loading-avatar ._Root_1qkcq_11 { animation: none; transform: none; }
+}
+
 .startup-loader__logo { clip-path: none; background: none; object-fit: contain;
   border-radius: 50%; transform-origin: 50% 75%;
   animation: jimao-avatar-wiggle 1.8s ease-in-out infinite; }
