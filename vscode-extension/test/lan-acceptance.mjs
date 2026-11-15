@@ -254,6 +254,9 @@ try {
   assert.equal(await frame.getByRole("button", { name: /Archive chat|归档聊天/ }).count(), 0, "History list must omit archive actions");
   const hoveredRow = frame.locator(".cm-original-row > [role=button]").first();
   await hoveredRow.hover();
+  assert(await hoveredRow.locator("time").isVisible(), "History timestamp must remain visible on hover when no replacement actions exist");
+  await hoveredRow.focus();
+  assert(await hoveredRow.locator("time").isVisible(), "History timestamp must remain visible with keyboard focus");
   assert.equal(await hoveredRow.evaluate(el => getComputedStyle(el).backgroundColor), "rgb(42, 45, 46)", "History hover must use the dark list highlight");
   await page.screenshot({ path: "reports/lan-history-hover.png" });
   const threadId = await frame
@@ -544,6 +547,11 @@ try {
     await back.tap();
     await restoredFrame.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id) === "/", readyB.windowId);
     await restored.getByText("LAN renamed", { exact: true }).first().waitFor();
+    if (width === 1100) {
+      const homeRow = restored.locator(".cm-original-row").filter({ hasText: "LAN renamed" }).first();
+      await homeRow.hover();
+      assert(await homeRow.locator("time").isVisible(), "Home list timestamp must remain visible on hover");
+    }
     assert.equal(await back.count(), 0, "Home list must not show a return button");
     if (width === 390) await mobilePage.screenshot({ path: "reports/lan-mobile-back-home.png" });
     await restored.getByText("LAN renamed", { exact: true }).first().click();
@@ -562,7 +570,7 @@ try {
   await mobileFrame.evaluate(() => window.dispatchEvent(new CustomEvent("open-recent-tasks-menu")));
   const mobilePanel = mobileFrame.getByRole("region", { name: "聊天搜索", exact: true });
   await mobilePanel.waitFor();
-  assert.match(await mobilePanel.locator(".cm-page-info").innerText(), /每页 5 条/);
+  assert.match(await mobilePanel.locator(".cm-page-info").getAttribute("aria-label"), /每页 5 条/);
   assert(await mobileFrame.evaluate(() => !document.activeElement?.matches("input,textarea")), "Opening history must not summon mobile keyboard");
   for (const height of [844, 430]) {
     await mobilePage.setViewportSize({ width: 390, height });

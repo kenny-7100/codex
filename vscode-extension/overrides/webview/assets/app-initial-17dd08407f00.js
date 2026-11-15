@@ -202560,7 +202560,7 @@ function b_i(e) {
     _n = Ue ? `status-hover` : `row-hover`;
   (xt || (Ue && Ct)) && (_n = `visible`);
   let vn =
-      !dn &&
+      !dn && gn != null &&
       Eo(
         `group-focus-visible:hidden group-has-[:focus-visible]:hidden`,
         !Ue && `group-hover:hidden`,
