@@ -103,7 +103,7 @@
       },
       {
         "command": "chatgpt.stopLanAccess",
-        "title": "关闭当前窗口的局域网访问",
+        "title": "关闭局域网访问（全部窗口）",
         "category": "Jimao"
       },
       {

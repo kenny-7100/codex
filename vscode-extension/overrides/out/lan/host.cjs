@@ -16,7 +16,7 @@ function register(vscode, context, controller) {
     endpoint,
     secret,
     polling,
-    generation = 0;
+    generation = 0, disposed = false, transition = Promise.resolve();
   const storage = path.join(
       process.env.CODEX_HOME || path.join(os.homedir(), ".codex"),
       "jimao-lan",
@@ -50,7 +50,7 @@ function register(vscode, context, controller) {
       const h = await fetch(endpoint + "/health", {
         signal: AbortSignal.timeout(1000),
       }).then((r) => r.json());
-      if (h.service === "jimao-lan" && h.version === 1) {
+      if (h.service === "jimao-lan" && h.version === 2) {
         if (d.port !== port)
           throw Error(`共享入口已使用端口 ${d.port}，请使用相同端口`);
         return;
@@ -58,8 +58,16 @@ function register(vscode, context, controller) {
     } catch (e) {
       if (e.message.startsWith("共享入口")) throw e;
     }
+    // A running old gateway must be stopped explicitly before upgrading.
+    try {
+      const h = await fetch(endpoint + "/health", { signal: AbortSignal.timeout(500) }).then(r => r.json());
+      if (h.service === "jimao-lan" && h.version !== 2)
+        throw Error("请先关闭所有旧窗口的局域网访问，等待 30 秒后重新开启，以升级共享入口");
+    } catch (error) {
+      if (error.message.startsWith("请先关闭")) throw error;
+    }
     // Copy the gateway out of the versioned extension install directory.
-    const runtime = path.join(storage, "runtime-v1");
+    const runtime = path.join(storage, "runtime-v2");
     await fs.mkdir(runtime, { recursive: true });
     for (const file of ["server.cjs", "shell.html"])
       await fs.copyFile(path.join(__dirname, file), path.join(runtime, file));
@@ -246,7 +254,10 @@ function register(vscode, context, controller) {
         console.error("[Jimao LAN]", error);
         await pause(1000);
         try {
-          await enroll();
+          await serial(async () => {
+            await synchronize();
+            if (running && epoch === generation) await enroll();
+          });
         } catch {}
       }
     }
@@ -254,6 +265,7 @@ function register(vscode, context, controller) {
   async function enroll() {
     await request("/internal/register", {
       id,
+      pid: process.pid,
       name: vscode.workspace.name || "未命名窗口",
       folders: (vscode.workspace.workspaceFolders || []).map(
         (f) => f.uri.fsPath,
@@ -271,24 +283,67 @@ function register(vscode, context, controller) {
         .map((n) => `http://${n.address}:${port}`),
     ];
   }
-  async function start() {
-    if (running) return addresses();
-    const port = vscode.workspace
-      .getConfiguration("chatgpt")
-      .get("lanPort", 8765);
-    await gateway(port);
-    await enroll();
-    running = true;
-    polling = poll(++generation);
-    return addresses();
+  // Serialize commands and discovery so disable cannot race a late enrollment.
+  function serial(action) {
+    const next = transition.then(action);
+    transition = next.catch(() => {});
+    return next;
   }
-  async function stop() {
+  async function detach() {
     running = false;
     generation++;
     for (const view of [...views.values()]) view.dispose();
-    if (endpoint)
-      await request("/internal/remove", { windowId: id }).catch(() => {});
+    if (endpoint) await request("/internal/remove", { windowId: id }).catch(() => {});
   }
+  async function synchronize() {
+    if (disposed) return;
+    try {
+      const descriptor = JSON.parse(await fs.readFile(statePath, "utf8"));
+      const target = `http://127.0.0.1:${descriptor.port}`;
+      const health = await fetch(target + "/health", { signal: AbortSignal.timeout(1000) }).then(r => r.json());
+      if (health.service !== "jimao-lan" || health.version !== 2 || !health.enabled) {
+        if (running) await detach();
+        return;
+      }
+      if (running && endpoint === target && secret === descriptor.secret) return;
+      if (running) await detach();
+      endpoint = target;
+      secret = descriptor.secret;
+      await enroll();
+      running = true;
+      polling = poll(++generation);
+    } catch {
+      if (running) await detach();
+    }
+  }
+  async function start() {
+    return serial(async () => {
+      if (disposed) return [];
+      if (running) return addresses();
+      const port = vscode.workspace.getConfiguration("chatgpt").get("lanPort", 8765);
+      await gateway(port);
+      await request("/internal/access", { enabled: true });
+      await enroll();
+      running = true;
+      polling = poll(++generation);
+      return addresses();
+    });
+  }
+  async function stop() {
+    return serial(async () => {
+      // Discovery also lets a window which has not joined yet disable globally.
+      try {
+        const d = JSON.parse(await fs.readFile(statePath, "utf8"));
+        endpoint = `http://127.0.0.1:${d.port}`;
+        secret = d.secret;
+        await request("/internal/access", { enabled: false });
+      } catch {}
+      await detach();
+    });
+  }
+  const discovery = setInterval(() => serial(synchronize), 2000);
+  discovery.unref();
+  serial(synchronize);
   const commands = [
     vscode.commands.registerCommand("chatgpt.startLanAccess", async () => {
       try {
@@ -297,7 +352,7 @@ function register(vscode, context, controller) {
           urls.find((u) => !u.includes("localhost")) || urls[0],
         );
         vscode.window.showInformationMessage(
-          `Jimao 局域网访问已开启，地址已复制：${urls.join("  ")}`,
+          `Jimao 局域网访问已全局开启，已激活窗口将自动加入，地址已复制：${urls.join("  ")}`,
         );
         return { windowId: id, urls };
       } catch (e) {
@@ -320,7 +375,9 @@ function register(vscode, context, controller) {
   ];
   const disposable = {
     dispose() {
-      stop();
+      disposed = true;
+      clearInterval(discovery);
+      serial(detach);
       commands.forEach((c) => c.dispose());
     },
   };

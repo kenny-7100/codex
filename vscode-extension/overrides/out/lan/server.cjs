@@ -4,7 +4,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { EventEmitter } = require("node:events");
-const VERSION = 1;
+const VERSION = 2;
 const MAX_BODY = 24 * 1024 * 1024;
 function createGateway({
   port = 8765,
@@ -14,7 +14,7 @@ function createGateway({
 } = {}) {
   const windows = new Map(),
     clients = new Map();
-  let idleSince = Date.now();
+  let idleSince = Date.now(), enabled = false;
   const json = (res, status, data) => {
     res.writeHead(status, {
       "content-type": "application/json",
@@ -47,12 +47,20 @@ function createGateway({
   }
   function removeWindow(id) {
     windows.get(id)?.wake.emit("queue");
-    windows.delete(id);
+    const existed = windows.delete(id);
+    if (existed && !windows.size) enabled = false;
     for (const c of clients.values())
       if (c.windowId === id) {
         emit(c, "offline", {});
         closeClient(c.id);
       }
+  }
+  function pruneHosts() {
+    for (const w of windows.values()) {
+      if (!Number.isInteger(w.pid)) continue;
+      try { process.kill(w.pid, 0); }
+      catch (error) { if (error.code === "ESRCH") removeWindow(w.id); }
+    }
   }
   async function body(req) {
     const chunks = [];
@@ -67,6 +75,7 @@ function createGateway({
   }
   const server = http.createServer(async (req, res) => {
     try {
+      pruneHosts();
       const url = new URL(req.url, "http://gateway");
       const origin = req.headers.origin;
       if (origin && new URL(origin).host !== req.headers.host)
@@ -87,7 +96,7 @@ function createGateway({
         return res.end();
       }
       if (url.pathname === "/health")
-        return json(res, 200, { service: "jimao-lan", version: VERSION });
+        return json(res, 200, { service: "jimao-lan", version: VERSION, enabled });
       if (req.method === "GET" && url.pathname === "/") {
         res.writeHead(200, {
           "content-type": "text/html; charset=utf-8",
@@ -105,7 +114,14 @@ function createGateway({
             folders: w.folders,
           })),
         );
+      if (req.method === "POST" && url.pathname === "/internal/access") {
+        enabled = (await body(req)).enabled === true;
+        idleSince = Date.now();
+        if (!enabled) for (const id of [...windows.keys()]) removeWindow(id);
+        return json(res, 200, { enabled });
+      }
       if (req.method === "POST" && url.pathname === "/internal/register") {
+        if (!enabled) return json(res, 409, { error: "LAN access is disabled" });
         const data = await body(req);
         const existing = windows.get(data.id);
         if (!data.id || !data.root)
@@ -249,6 +265,7 @@ function createGateway({
     }
   });
   const timer = setInterval(() => {
+    pruneHosts();
     for (const w of windows.values())
       if (Date.now() - w.lastSeen > 45000) removeWindow(w.id);
     for (const c of clients.values()) {

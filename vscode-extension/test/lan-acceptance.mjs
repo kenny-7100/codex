@@ -415,7 +415,7 @@ try {
       "--enable-proposed-api",
       "openai.chatgpt",
     ],
-    { env: { ...env, JIMAO_LAN_ACCEPTANCE: profileB }, stdio: "ignore" },
+    { env: { ...env, JIMAO_LAN_ACCEPTANCE: profileB, JIMAO_LAN_AUTO_JOIN: "1" }, stdio: "ignore" },
   );
   let readyB;
   for (let i = 0; !readyB; i++) {
