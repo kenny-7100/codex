@@ -198,7 +198,7 @@ try {
     const composer = rail?.nextElementSibling?.querySelector("._ComposerLayoutRoot_73a71_2");
     return rail && composer && composer.getBoundingClientRect().top - rail.getBoundingClientRect().bottom >= 7.5;
   }), "Local mode rail must have a clear gap above the composer");
-  const editor = frame.locator('[contenteditable="true"]').first();
+  let editor = frame.locator('[contenteditable="true"]').first();
   await editor.fill("Say hello for LAN acceptance");
   await assertActionIcon(frame.getByRole("button", { name: "Send", exact: true }));
   await editor.press("Enter");
@@ -213,6 +213,26 @@ try {
   );
   await page.screenshot({ path: "reports/lan-chat.png" });
   console.log("CHAT PASSED");
+  const chatBeforeDiff = await frame.evaluate((id) => sessionStorage.getItem("jimao-route-" + id), ready.windowId);
+  for (const width of [1100, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await frame.evaluate((route) => window.acquireVsCodeApi().postMessage({
+      conversationId: route.split("/")[2],
+      type: "show-diff", unifiedDiff: "diff --git a/test.txt b/test.txt\n--- a/test.txt\n+++ b/test.txt\n@@ -1 +1 @@\n-before\n+after\n", cwd: null,
+    }), chatBeforeDiff);
+    const backToChat = frame.getByRole("button", { name: "← 返回聊天", exact: true });
+    await backToChat.waitFor();
+    assert((await frame.locator("body").innerText()).includes("test.txt"), "Diff content must render");
+    if (width === 390) await page.screenshot({ path: "reports/lan-diff-return-mobile.png" });
+    await backToChat.click();
+    await page.frameLocator("#view").getByRole("textbox").waitFor();
+    frame = await (await page.locator("#view").elementHandle()).contentFrame();
+    assert.equal(await frame.evaluate((id) => sessionStorage.getItem("jimao-route-" + id), ready.windowId), chatBeforeDiff);
+    await frame.getByText("LAN acceptance response.", { exact: true }).first().waitFor();
+  }
+  await page.setViewportSize({ width: 1100, height: 900 });
+  editor = frame.locator('[contenteditable="true"]').first();
+  console.log("DIFF RETURN PASSED");
   await frame
     .getByRole("button", { name: "Add files and more", exact: true })
     .click();

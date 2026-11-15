@@ -14,16 +14,28 @@
     });
 
   const routeKey = "jimao-route-" + windowId;
-  const route = sessionStorage.getItem(routeKey);
+  let route = sessionStorage.getItem(routeKey);
+  // A diff requires transient content, so stale diff routes return to the chat.
+  if (/^\/diff(?:[/?#]|$)/.test(String(route))) {
+    route = sessionStorage.getItem(routeKey + "-chat") || "/";
+    sessionStorage.setItem(routeKey, route);
+  }
+  window.__jimaoReturnToChat = () => {
+    const chat = sessionStorage.getItem(routeKey + "-chat") || "/";
+    sessionStorage.setItem(routeKey, /^\/diff(?:[/?#]|$)/.test(chat) ? "/" : chat);
+    location.reload();
+  };
   if (route && !document.querySelector('meta[name="initial-route"]')) {
     const meta = document.createElement("meta");
     meta.name = "initial-route";
     meta.content = route;
     document.head.append(meta);
   }
-  window.addEventListener("jimao-route", (e) =>
-    sessionStorage.setItem(routeKey, e.detail),
-  );
+  window.addEventListener("jimao-route", (e) => {
+    sessionStorage.setItem(routeKey, e.detail);
+    if (e.detail === "/" || String(e.detail).startsWith("/local/"))
+      sessionStorage.setItem(routeKey + "-chat", e.detail);
+  });
 
   if (!crypto.randomUUID)
     crypto.randomUUID = () =>
