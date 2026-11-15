@@ -162,6 +162,40 @@ test("LAN shell and iframe stay fixed while conversation, nested dialog and code
     "Draft remains editable",
   );
 });
+test("home history only scrolls vertically while the composer stays visible", async ({
+  page,
+}) => {
+  const frame = await openShell(page);
+  await frame.evaluate(() => {
+    const root = document.querySelector("#root");
+    root.innerHTML =
+      '<section data-jimao-home-header><div style="height:32px">Chats</div><div id="history"><div style="width:calc(100% + 1px);height:300px">History rows</div></div></section><div style="display:flex;flex-direction:column;justify-content:flex-end"><textarea aria-label="Composer" style="height:90px;flex-shrink:0"></textarea></div>';
+  });
+  for (const [width, height] of [
+    [2000, 800],
+    [1100, 740],
+    [390, 430],
+    [320, 320],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await expect.poll(() => frame.evaluate(() => innerWidth)).toBe(width);
+    const history = frame.locator("#history");
+    expect(await history.evaluate((el) => getComputedStyle(el).overflowX)).toBe(
+      "hidden",
+    );
+    expect(await history.evaluate((el) => getComputedStyle(el).overflowY)).toBe(
+      "auto",
+    );
+    const composer = await frame.getByRole("textbox").boundingBox();
+    expect(composer.y + composer.height).toBeLessThanOrEqual(height + 1);
+    if (height === 320) {
+      await history.evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      });
+      expect(await history.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    }
+  }
+});
 test("visual viewport keyboard resize and offset are applied once, then restore", async ({
   page,
 }) => {
