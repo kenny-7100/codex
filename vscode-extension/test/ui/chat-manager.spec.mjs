@@ -105,7 +105,7 @@ test("mobile and desktop have one panel, no horizontal overflow and useful resul
   ).toBe(true);
   expect(
     (await page.getByLabel("聊天搜索结果").boundingBox()).height,
-  ).toBeGreaterThan(200);
+  ).toBeGreaterThan(100);
   await expect(page.locator("main")).toHaveCount(1);
   await page.screenshot({
     path: "reports/chat-manager-mobile.png",
@@ -242,4 +242,30 @@ test("touch search controls have compact visual fonts and aligned toolbar height
     expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     await page.screenshot({ path: "reports/chat-manager-touch-typography.png" });
   } finally { await context.close(); }
+});
+
+
+test("mobile uses five-row pages, desktop restores ten; tag colors persist without borders", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator("[data-result-id]")).toHaveCount(5);
+  await expect(page.locator(".cm-page-info")).toHaveText("第 1 / 27 页 · 每页 5 条");
+  await page.getByRole("button", { name: "下一页", exact: true }).click();
+  await expect(page.locator(".cm-page-info")).toHaveText("第 2 / 27 页 · 每页 5 条");
+  await expect(page.locator("[data-result-id]")).toHaveCount(5);
+  await page.getByRole("button", { name: "首页", exact: true }).click();
+  const row = page.locator('[data-chat-id="fixture-0"]');
+  await row.getByRole("button", { name: "编辑标签" }).click();
+  await row.getByLabel("标签（用逗号分隔）").fill("手机,设计,开发");
+  await row.getByRole("button", { name: "保存", exact: true }).click();
+  const tag = row.locator(".cm-tag").first();
+  const appearance = await tag.evaluate(el => ({ background:getComputedStyle(el).backgroundImage,border:getComputedStyle(el).borderWidth,color:getComputedStyle(el).color }));
+  expect(appearance.background).toContain("linear-gradient");
+  expect(appearance.border).toBe("0px");
+  await page.reload();
+  await expect(tag).toBeVisible();
+  expect(await tag.evaluate(el => getComputedStyle(el).backgroundImage)).toBe(appearance.background);
+  await page.screenshot({ path:"reports/chat-manager-colored-tags-mobile.png" });
+  await page.setViewportSize({ width: 960, height: 1000 });
+  await expect(page.locator("[data-result-id]")).toHaveCount(10);
+  await expect(page.locator(".cm-page-info")).toHaveText("第 1 / 14 页 · 每页 10 条");
 });

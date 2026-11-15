@@ -267,3 +267,18 @@ test("host metadata serializes concurrent windows, isolates hosts, and survives 
     "after failed write",
   );
 });
+
+test("tag palette provides sixteen readable gradients with stable normalized hashes", async () => {
+  const { TAG_PALETTE, tagAppearance } = await import("../overrides/webview/assets/chat-manager-core.js");
+  assert.equal(TAG_PALETTE.length, 16);
+  assert.deepEqual(tagAppearance("  DESIGN  "), tagAppearance("design"));
+  const luminance = hex => {
+    const values = hex.match(/[a-f0-9]{2}/gi).map(v => parseInt(v, 16) / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+    return values[0] * .2126 + values[1] * .7152 + values[2] * .0722;
+  };
+  const text = luminance("#f7f8fc");
+  for (const pair of TAG_PALETTE) for (const color of pair)
+    assert((text + .05) / (luminance(color) + .05) >= 4.5, color + " must retain readable label contrast");
+  const colors = new Set(Array.from({ length: 200 }, (_, i) => tagAppearance("tag-" + i).background));
+  assert.equal(colors.size, 16);
+});

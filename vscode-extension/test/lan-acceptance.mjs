@@ -193,6 +193,11 @@ try {
     assert.notEqual(colors.foreground, colors.background, "Action icon must contrast with button");
     assert.notEqual(colors.foreground, "rgb(221, 221, 221)", "Icon must not inherit page text on light action button");
   }
+  assert(await frame.evaluate(() => {
+    const rail = document.querySelector("._attached_1ugo6_36");
+    const composer = rail?.nextElementSibling?.querySelector("._ComposerLayoutRoot_73a71_2");
+    return rail && composer && composer.getBoundingClientRect().top - rail.getBoundingClientRect().bottom >= 7.5;
+  }), "Local mode rail must have a clear gap above the composer");
   const editor = frame.locator('[contenteditable="true"]').first();
   await editor.fill("Say hello for LAN acceptance");
   await assertActionIcon(frame.getByRole("button", { name: "Send", exact: true }));
@@ -523,6 +528,7 @@ try {
   await mobileFrame.evaluate(() => window.dispatchEvent(new CustomEvent("open-recent-tasks-menu")));
   const mobilePanel = mobileFrame.getByRole("region", { name: "聊天搜索", exact: true });
   await mobilePanel.waitFor();
+  assert.match(await mobilePanel.locator(".cm-page-info").innerText(), /每页 5 条/);
   assert(await mobileFrame.evaluate(() => !document.activeElement?.matches("input,textarea")), "Opening history must not summon mobile keyboard");
   for (const height of [844, 430]) {
     await mobilePage.setViewportSize({ width: 390, height });

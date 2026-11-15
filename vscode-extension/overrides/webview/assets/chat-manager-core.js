@@ -242,3 +242,22 @@ export async function searchHistory(request, filters, options = {}) {
   }
   return [...result.values()];
 }
+
+// Paired jewel tones retain readable light text on dark and light themes.
+export const TAG_PALETTE = Object.freeze([
+  ["#385f96", "#2e4e7c"], ["#465b9b", "#394a80"],
+  ["#61529a", "#50437f"], ["#79508f", "#644276"],
+  ["#914f80", "#774169"], ["#99556a", "#7e4657"],
+  ["#965750", "#7c4842"], ["#966247", "#7c513b"],
+  ["#876c38", "#70592e"], ["#75713a", "#605d30"],
+  ["#5c7546", "#4c603a"], ["#43795c", "#37644c"],
+  ["#38796f", "#2e645c"], ["#397584", "#2f606d"],
+  ["#456d8b", "#395a73"], ["#626980", "#51576a"],
+].map(pair => Object.freeze(pair)));
+export function tagAppearance(tag) {
+  const key = String(tag).normalize("NFKC").trim().toLowerCase();
+  let hash = 2166136261;
+  for (const char of key) hash = Math.imul(hash ^ char.codePointAt(0), 16777619) >>> 0;
+  const [start, end] = TAG_PALETTE[hash % TAG_PALETTE.length];
+  return { background: `linear-gradient(135deg, ${start}, ${end})`, color: "#f7f8fc" };
+}
