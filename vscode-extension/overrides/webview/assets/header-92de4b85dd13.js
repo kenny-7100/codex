@@ -1053,7 +1053,7 @@ function Zt(e) {
     _;
   t[2] === g ? (_ = t[3]) : ((_ = g ?? []), (t[2] = g), (t[3] = _));
   let v = Pt(_),
-    y = l || Ze == null,
+    y = l || Ze == null || !!globalThis.__jimaoLan,
     b;
   t[25] === r
     ? (b = t[26])

@@ -538,6 +538,16 @@ try {
         return original.apply(this, arguments);
       };
     });
+    const back = restored.getByRole("button", { name: /^(Back|返回)$/ });
+    await back.waitFor();
+    if (width === 390) await mobilePage.screenshot({ path: "reports/lan-mobile-back-button.png" });
+    await back.tap();
+    await restoredFrame.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id) === "/", readyB.windowId);
+    await restored.getByText("LAN renamed", { exact: true }).first().waitFor();
+    assert.equal(await back.count(), 0, "Home list must not show a return button");
+    if (width === 390) await mobilePage.screenshot({ path: "reports/lan-mobile-back-home.png" });
+    await restored.getByText("LAN renamed", { exact: true }).first().click();
+    await restoredFrame.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id)?.startsWith("/local/"), readyB.windowId);
     await restored.getByRole("button", { name: /New chat|新建聊天|新聊天/ }).first().tap();
     await restoredFrame.waitForFunction((id) => sessionStorage.getItem("jimao-route-" + id) === "/", readyB.windowId);
     assert.deepEqual(await restoredFrame.evaluate(() => window.__newChatDesktopCommands), []);
