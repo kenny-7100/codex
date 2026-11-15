@@ -20,9 +20,11 @@
     }
     header {
       display: flex;
+      flex-wrap: nowrap;
+      flex-shrink: 0;
       align-items: center;
       min-width: 0;
-      gap: 12px;
+      gap: 8px;
       padding: 8px 12px;
       border-bottom: 1px solid #444;
     }
@@ -44,9 +46,17 @@
       width: 100%;
       min-height: 0;
     }
-    header strong, #status { flex-shrink: 0; }
-    header select { flex: 1; }
+    header strong { flex-shrink: 0; white-space: nowrap; }
+    header select { flex: 1 1 0; max-width: none; white-space: nowrap; }
     #status {
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: 45%;
+      margin-left: auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: right;
       font-size: 12px;
       color: #aaa;
     }
