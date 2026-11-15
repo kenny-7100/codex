@@ -233367,6 +233367,8 @@ function dVi(e) {
       title: codexxVisibleTitle(qe ?? "local", r, qt),
       rename: async (name) => Ps(We, qe ?? "local").setThreadTitle(r, name, { requireAcknowledgement: true }),
       children: (tags) => hVi.cloneElement(qn, {
+        onArchive: undefined,
+        onArchiveRequest: undefined,
         title: hVi.createElement("span", { className: "cm-inline-title" },
           hVi.createElement("span", { className: "cm-title-text" }, codexxVisibleTitle(qe ?? "local", r, qt)), tags),
         ariaLabel: codexxVisibleTitle(qe ?? "local", r, qt),

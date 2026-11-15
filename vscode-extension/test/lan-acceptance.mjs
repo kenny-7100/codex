@@ -246,6 +246,7 @@ try {
   );
   await frame.getByRole("region", { name: "聊天搜索", exact: true }).waitFor();
   await frame.locator("[data-result-id]").first().waitFor();
+  assert.equal(await frame.getByRole("button", { name: /Archive chat|归档聊天/ }).count(), 0, "History list must omit archive actions");
   const hoveredRow = frame.locator(".cm-original-row > [role=button]").first();
   await hoveredRow.hover();
   assert.equal(await hoveredRow.evaluate(el => getComputedStyle(el).backgroundColor), "rgb(42, 45, 46)", "History hover must use the dark list highlight");
