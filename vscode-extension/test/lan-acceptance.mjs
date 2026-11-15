@@ -1020,6 +1020,65 @@ try {
       "H5 home send button must remain fully visible",
     );
     await homePage.screenshot({ path: "reports/lan-home-eight.png" });
+    for (const action of ["back", "new"]) {
+      await home.locator(".cm-original-row > [role=button]").first().tap();
+      await home.getByRole("button", { name: /^(Back|返回)$/ }).waitFor();
+      await home
+        .getByRole("button", {
+          name:
+            action === "back" ? /^(Back|返回)$/ : /New chat|新建聊天|新聊天/,
+        })
+        .tap();
+      await home.locator("[data-jimao-home-header]").waitFor();
+      const editor = home.getByRole("textbox");
+      assert(
+        await editor.evaluate((el) => el.contains(document.activeElement)),
+        "Returning home must preserve automatic composer focus",
+      );
+      for (const height of [430, 320, 740]) {
+        await homePage.setViewportSize({ width: 390, height });
+        await editor.fill("Unsent keyboard viewport draft");
+        await homePage.waitForFunction(
+          () =>
+            Math.abs(
+              document.body.getBoundingClientRect().height -
+                visualViewport.height,
+            ) < 1,
+        );
+        const composer = await home
+          .locator("[data-codex-composer=true]")
+          .boundingBox();
+        const button = await home
+          .getByRole("button", { name: "Send", exact: true })
+          .boundingBox();
+        assert(
+          composer.y >= 0 && composer.y + composer.height <= height + 1,
+          "Home composer must remain inside keyboard-reduced viewport after " +
+            action,
+        );
+        assert(
+          button.y + button.height <= height + 1,
+          "Home send button must remain above keyboard after " + action,
+        );
+        assert(
+          await editor.evaluate((el) => el.contains(document.activeElement)),
+        );
+        if (height === 430) {
+          const list = home.locator("[data-jimao-home-header] > :last-child");
+          assert(
+            await list.evaluate((el) => el.scrollHeight > el.clientHeight),
+            "Home history must yield height to the composer",
+          );
+          await list.evaluate((el) => {
+            el.scrollTop = el.scrollHeight;
+          });
+          assert(await list.evaluate((el) => el.scrollTop > 0));
+          await homePage.screenshot({
+            path: `reports/lan-home-keyboard-${action}.png`,
+          });
+        }
+      }
+    }
   } finally {
     await homeContext.close();
   }
@@ -1050,6 +1109,7 @@ try {
         "owner close preserves second window",
         "mobile layout and fixed viewport gestures/input focus",
         "H5 home capped at eight conversations with visible composer",
+        "home automatic focus after Back/New keeps composer visible in keyboard-reduced viewport",
       ],
       requests: requests.length,
     }),

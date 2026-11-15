@@ -1166,7 +1166,7 @@ function Zt(e) {
   let F;
   return (
     t[58] !== j || t[59] !== M || t[60] !== P || t[61] !== b
-      ? ((F = (0, $.jsxs)(`div`, { className: b, children: [j, M, P] })),
+      ? ((F = (0, $.jsxs)(`div`, { className: b, "data-jimao-home-header": globalThis.__jimaoLan && m ? "" : void 0, children: [j, M, P] })),
         (t[58] = j),
         (t[59] = M),
         (t[60] = P),

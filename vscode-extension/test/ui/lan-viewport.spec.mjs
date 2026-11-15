@@ -76,6 +76,57 @@ async function expectFixedRoots(surface) {
     y: 0,
   });
 }
+test("idle window polling preserves native selector options and updates real list changes", async ({
+  page,
+}) => {
+  let windows = [{ id: "first", name: "codex", folders: ["/work/codex"] }];
+  let polls = 0;
+  await page.route("**/lan-selector", (route) =>
+    route.fulfill({ contentType: "text/html", body: shell }),
+  );
+  await page.route("**/windows", (route) => {
+    polls++;
+    return route.fulfill({ json: windows });
+  });
+  await page.goto("/lan-selector");
+  await expect(page.locator("#windows option")).toHaveCount(2);
+  await page.locator("#windows").focus();
+  await page.evaluate(() => {
+    window.originalOption = document.querySelector(
+      "#windows option[value=first]",
+    );
+    window.selectorChanges = 0;
+    new MutationObserver((changes) => {
+      window.selectorChanges += changes.length;
+    }).observe(document.querySelector("#windows"), {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+  });
+  const baseline = polls;
+  await expect
+    .poll(() => polls, { timeout: 10000 })
+    .toBeGreaterThanOrEqual(baseline + 2);
+  expect(
+    await page.evaluate(
+      () =>
+        window.originalOption ===
+        document.querySelector("#windows option[value=first]"),
+    ),
+  ).toBe(true);
+  expect(await page.evaluate(() => window.selectorChanges)).toBe(0);
+  await expect(page.locator("#windows")).toBeFocused();
+  windows = [{ id: "second", name: "renamed", folders: ["/work/other"] }];
+  await expect(page.locator("#windows option[value=second]")).toHaveCount(1);
+  await expect(page.locator("#windows option[value=first]")).toHaveCount(0);
+  expect(
+    await page
+      .locator("#windows option[value=second]")
+      .getAttribute("aria-label"),
+  ).toContain("/work/other");
+});
 test("LAN shell and iframe stay fixed while conversation, nested dialog and code can scroll", async ({
   page,
 }) => {

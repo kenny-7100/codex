@@ -256,6 +256,12 @@
       min-height: 0; overflow: hidden !important; overscroll-behavior: none; }
     body { position: fixed; inset: 0; }
     #root { height: 100%; max-height: 100%; min-height: 0; overflow: hidden; }
+    /* Home history yields space to the composer when the keyboard opens. */
+    [data-jimao-home-header] { display: flex; flex-direction: column;
+      flex: 0 1 auto; min-height: 32px; overflow: hidden; }
+    [data-jimao-home-header] > :first-child { flex-shrink: 0; }
+    [data-jimao-home-header] > :last-child { min-height: 0; overflow-y: auto; }
+    [data-jimao-home-header] + div { height: auto; min-height: 0; flex: 1 0 auto; }
     body * { overscroll-behavior-x: contain; overscroll-behavior-y: contain; }
   `;
   document.head.append(layout);

@@ -227,11 +227,13 @@
       );
       for (const option of select.options) {
         const full = option.dataset.fullLabel || option.textContent;
-        option.dataset.fullLabel = full;
-        option.title = full;
-        option.setAttribute("aria-label", full);
-        if (measure.measureText(full).width <= width) option.textContent = full;
-        else {
+        if (option.dataset.fullLabel !== full) option.dataset.fullLabel = full;
+        if (option.title !== full) option.title = full;
+        if (option.getAttribute("aria-label") !== full)
+          option.setAttribute("aria-label", full);
+        if (measure.measureText(full).width <= width) {
+          if (option.textContent !== full) option.textContent = full;
+        } else {
           const chars = Array.from(full);
           let low = 0,
             high = chars.length;
@@ -244,11 +246,13 @@
               low = mid;
             else high = mid - 1;
           }
-          option.textContent = "…" + (low ? chars.slice(-low).join("") : "");
+          const fitted = "…" + (low ? chars.slice(-low).join("") : "");
+          if (option.textContent !== fitted) option.textContent = fitted;
         }
       }
-      select.title =
+      const title =
         select.selectedOptions[0]?.dataset.fullLabel || "选择 VS Code 窗口";
+      if (select.title !== title) select.title = title;
     }
     new ResizeObserver(fitWindowLabels).observe(select);
 
@@ -366,22 +370,31 @@
       if (selected) sessionStorage.setItem("jimao-route-" + selected, "/");
       await switchWindow(select.value || selected);
     }
+    let windowListSignature = "";
     async function refresh() {
       try {
         const r = await fetch("/windows"),
           list = await r.json();
         const chosen = selected || sessionStorage.getItem("jimao-window") || "";
-        select.replaceChildren(
-          new Option("选择 VS Code 窗口", ""),
-          ...list.map(
-            (w) =>
-              new Option(
-                w.name + (w.folders.length ? " — " + w.folders.join(", ") : ""),
-                w.id,
-              ),
-          ),
+        const signature = JSON.stringify(
+          list.map(({ id, name, folders }) => ({ id, name, folders })),
         );
-        select.value = list.some((w) => w.id === chosen) ? chosen : "";
+        if (signature !== windowListSignature) {
+          windowListSignature = signature;
+          select.replaceChildren(
+            new Option("选择 VS Code 窗口", ""),
+            ...list.map(
+              (w) =>
+                new Option(
+                  w.name +
+                    (w.folders.length ? " — " + w.folders.join(", ") : ""),
+                  w.id,
+                ),
+            ),
+          );
+        }
+        const value = list.some((w) => w.id === chosen) ? chosen : "";
+        if (select.value !== value) select.value = value;
         fitWindowLabels();
         for (const [id, session] of sessions)
           if (!list.some((w) => w.id === id)) {
