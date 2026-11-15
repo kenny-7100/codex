@@ -95,6 +95,34 @@ sh vscode-extension/scripts/engine.sh validate
 恢复官方引擎时移开本机描述文件并清除 CODEXX_ENGINE，重新构建打包。
 只关闭持续重试可使用插件设置，无需替换二进制。
 
+## 已定位的分支聊天兼容问题（2026-11-16）
+
+适用：官方前端 `26.51111.21308` 与上述 `0.0.0` 定制引擎组合。
+用户报告从对话分支到新聊天时出现“聊天已创建，但设置未能完成”，错误为
+`unknown variant thread/rollback`。本次只完成定位，尚未修改功能代码或重新打包。
+
+- 前端 `src/webview/assets/app-initial-050fbd442c4f.js` 的 `ihe` 在
+  `beforeTargetTurn=false` 时，仅当历史为 `paginated`，或引擎版本不是 `0.0.0`
+  且不低于 `0.143.0-alpha.32`，才直接用 `thread/fork` 的 `lastTurnId` 截断。
+  `legacy` 历史配合 `0.0.0` 会进入旧路径：先 fork 全部历史，再用
+  `thread/rollback { threadId, numTurns }` 删除目标轮次之后的内容。
+- 后一步失败被包装为 `synchronization.status=failed`，不会撤销已创建的新聊天。
+  因而报错的新聊天不能视为已正确截断到所选轮次。
+- 隔离临时 CODEX_HOME 的原生协议探测确认：参考包引擎报告
+  `0.169.0-alpha.11.1`，定制引擎报告 `0.0.0`；两者都拒绝 `thread/rollback`，
+  两者都接受 `thread/fork` 方法并进入会话查找。探测只使用不存在的会话 ID，
+  没有操作用户聊天或调用模型。官方原件无执行权限，探测使用临时可执行副本，未修改原件。
+- 提取实际 `ihe` 函数，以模拟客户端和相同的两轮 `legacy` 历史运行，确认官方版本
+  只发送带 `lastTurnId` 的 fork；`0.0.0` 先发送无截断参数的 fork，再发 rollback，
+  并在后者拒绝时返回同步失败。该验证不是实际 VS Code 点击验收；尚未读取报错会话的历史模式。
+- 不能简单把 `thread/rollback` 改名为 `thread/revert`：后者参数是 `beforeTurnId`，
+  返回分页游标且 `thread.turns` 为空，响应处理也不同。当前 Rust 定义见
+  `codex-rs/app-server-protocol/src/protocol/v2/thread.rs`。
+
+修复应使分支路径依据已确认的能力选择定制引擎支持的原生截断 fork，并回归旧聊天历史；
+不要仅伪造一个官方版本号来整体开启未经验证的前端能力。前端编辑消息等位置也保留 rollback
+旧路径，但本次没有复现这些入口的故障，不能据此宣称它们均已损坏或已兼容。
+
 ## 验收入口
 
 - [Rust 虚拟时间测试](../../codex-rs/core/src/responses_retry_tests.rs)：退避、上限、取消、开关和原策略回归。
